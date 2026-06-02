@@ -12,6 +12,7 @@ book/
   plugins/              # Custom MyST plugins
   bibliography.bib      # Citations
 pyproject.toml          # Project metadata (jupyter-book-template), deps, Poe tasks
+.agent/skills/          # Agent skills (e.g. sync-from-template)
 .github/workflows/      # GitHub Pages deploy (main branch)
 .binder/Dockerfile      # Binder environment (main branch)
 ```
@@ -32,6 +33,23 @@ Use this checklist when turning the template into a new book project.
 6. Clone the fork locally.
 
 When creating a new repo from the template, select it from the template dropdown.
+
+### Connect to upstream (before customizing)
+
+Repos created via **Use this template** start with a single commit and **no shared Git history** with this repository ([GitHub discussion #50012](https://github.com/orgs/community/discussions/50012)). Merge from upstream **immediately after cloning**, before replacing placeholders or editing book content. At that stage the tree still matches the template snapshot, so the merge is usually conflict-free; waiting until after customization forces large `add/add` conflicts across `pyproject.toml`, `README.md`, workflows, and other infra files.
+
+From the **child project** root (not this template repo):
+
+```bash
+git remote add template https://github.com/ELC/jupyter-book-template.git
+git fetch template main
+git merge template/main --allow-unrelated-histories --no-edit
+git push origin main
+```
+
+Later updates use a normal merge (`git fetch template main && git merge template/main --no-edit`). Full workflow, conflict rules, and troubleshooting: [`.agent/skills/sync-from-template/SKILL.md`](.agent/skills/sync-from-template/SKILL.md).
+
+Agents setting up a new book project must run this upstream merge (or confirm it was already done) **before** any placeholder or content edits.
 
 ### Local environment
 

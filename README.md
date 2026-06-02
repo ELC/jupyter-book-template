@@ -60,9 +60,24 @@ This is a *template* repository, so you won't use it directly, you will use it a
 
 Now, when creating a new repository, select this template from the dropdown.
 
-### Step 3: Customize
+### Step 3: Connect to upstream (do this before customizing)
 
-Clone the repo and open the folder with your favourite IDE / Editor and look for the term `REPLACE WITH` and replace the values with your custom information and remove the brackets. Examples for each are given below:
+GitHub template repos do not copy commit history—they create a fresh initial commit ([details](https://github.com/orgs/community/discussions/50012)). Link your new repo to this template and merge **before** you edit placeholders or add chapters. That first merge is usually clean; merging later, after customization, tends to produce many conflicts on shared infrastructure files.
+
+Clone the new repo, then run:
+
+```bash
+git remote add template https://github.com/ELC/jupyter-book-template.git
+git fetch template main
+git merge template/main --allow-unrelated-histories --no-edit
+git push origin main
+```
+
+For later template updates: `git fetch template main && git merge template/main --no-edit`. See [`.agent/skills/sync-from-template/SKILL.md`](.agent/skills/sync-from-template/SKILL.md) for conflict rules and troubleshooting.
+
+### Step 4: Customize
+
+Open the folder with your favourite IDE / Editor and look for the term `REPLACE WITH` and replace the values with your custom information and remove the brackets. Examples for each are given below:
 
 - **Book Title** -> Book Template
 - **Current Year** -> 2021
