@@ -1,66 +1,100 @@
 import altair as alt
+import pandas as pd
+import pytest
 from pandera.typing import DataFrame
-from sklearn.pipeline import Pipeline
 
-from analysis import bootstrap_confidence_intervals
-from core import Settings, TrainingData
-from core.schemas import SplitDatasetBase
-from prediction import (
-    conformal_intervals,
-    fit_conformal,
-    predict,
-    random_forest_regressor,
-    regression_pipeline,
+from analysis.model_comparison import ModelComparisonReport
+from core import (
+    ConfidenceIntervalByModel,
+    IntervalKind,
+    IntervalMetricReportByModel,
+    MetricReportByModel,
+    ModelKind,
+    PredictionIntervalByModel,
+    PredictionsByModel,
+    TrainingData,
 )
-from visualization import CHART_HEIGHT, CHART_WIDTH, plot_intervals
-from visualization.theme import SCATTER_OPACITY
+from visualization import plot_intervals
 
 
-def test_plot_intervals_returns_layer_chart(
-    dataset: DataFrame[TrainingData],
-    settings: Settings,
-    split_dataset: DataFrame[SplitDatasetBase],
-    fitted_pipeline: Pipeline,
-    unfitted_pipeline: Pipeline,
-) -> None:
-    predictions = predict(fitted_pipeline, split_dataset)
-    confidence = bootstrap_confidence_intervals(
-        unfitted_pipeline,
-        split_dataset,
-        Settings(n_resamples=10, confidence_level=0.90, seed=0),
+def _two_model_predictions() -> DataFrame[PredictionsByModel]:
+    rows = []
+    for model in (ModelKind.RANDOM_FOREST, ModelKind.SVM):
+        rows.extend({
+                    PredictionsByModel.x: x,
+                    PredictionsByModel.y_pred: x * 0.5,
+                    PredictionsByModel.y_true: x,
+                    PredictionsByModel.model: model.value,
+                } for x in (-1.0, 0.0, 1.0))
+    return pd.DataFrame(rows).pipe(DataFrame[PredictionsByModel])
+
+
+def _two_model_intervals(kind: IntervalKind) -> pd.DataFrame:
+    rows = []
+    for model in (ModelKind.RANDOM_FOREST, ModelKind.SVM):
+        rows.extend({
+                    "x": x,
+                    "lower": x - 0.5,
+                    "upper": x + 0.5,
+                    "kind": kind.value,
+                    "model": model.value,
+                } for x in (-1.0, 0.0, 1.0))
+    return pd.DataFrame(rows)
+
+
+@pytest.fixture
+def synthetic_report() -> ModelComparisonReport:
+    confidence = _two_model_intervals(IntervalKind.CONFIDENCE).pipe(
+        DataFrame[ConfidenceIntervalByModel],
     )
-    conformal_pipeline = regression_pipeline(random_forest_regressor(settings), settings)
-    conformal_model = fit_conformal(split_dataset, conformal_pipeline, settings)
-    prediction = conformal_intervals(conformal_model, split_dataset)
-    chart = plot_intervals(dataset, predictions, confidence, prediction)
-    assert isinstance(chart, alt.LayerChart)
-    assert chart.layer is not None
-    assert len(chart.layer) == 4
-    assert chart.width == CHART_WIDTH
-    assert chart.height == CHART_HEIGHT
-
-
-def test_plot_intervals_layer_encodings(
-    dataset: DataFrame[TrainingData],
-    settings: Settings,
-    split_dataset: DataFrame[SplitDatasetBase],
-    fitted_pipeline: Pipeline,
-    unfitted_pipeline: Pipeline,
-) -> None:
-    predictions = predict(fitted_pipeline, split_dataset)
-    confidence = bootstrap_confidence_intervals(
-        unfitted_pipeline,
-        split_dataset,
-        Settings(n_resamples=5, confidence_level=0.90, seed=0),
+    prediction = _two_model_intervals(IntervalKind.PREDICTION).pipe(
+        DataFrame[PredictionIntervalByModel],
     )
-    conformal_pipeline = regression_pipeline(random_forest_regressor(settings), settings)
-    conformal_model = fit_conformal(split_dataset, conformal_pipeline, settings)
-    prediction = conformal_intervals(conformal_model, split_dataset)
-    chart = plot_intervals(dataset, predictions, confidence, prediction)
-    assert chart.layer is not None
-    scatter, prediction_band, confidence_band, line = chart.layer
-    assert scatter.mark.type == "circle"
-    assert scatter.mark.opacity == SCATTER_OPACITY
-    assert prediction_band.mark.type == "errorband"
-    assert confidence_band.mark.type == "errorband"
-    assert line.mark.type == "line"
+    empty_metrics = pd.DataFrame(
+        {
+            MetricReportByModel.metric: pd.Series(dtype=str),
+            MetricReportByModel.lower: pd.Series(dtype=float),
+            MetricReportByModel.upper: pd.Series(dtype=float),
+            MetricReportByModel.model: pd.Series(dtype=str),
+        },
+    ).pipe(DataFrame[MetricReportByModel])
+    empty_interval_metrics = pd.DataFrame(
+        {
+            IntervalMetricReportByModel.kind: pd.Series(dtype=str),
+            IntervalMetricReportByModel.metric: pd.Series(dtype=str),
+            IntervalMetricReportByModel.value: pd.Series(dtype=float),
+            IntervalMetricReportByModel.model: pd.Series(dtype=str),
+        },
+    ).pipe(DataFrame[IntervalMetricReportByModel])
+    return ModelComparisonReport(
+        predictions=_two_model_predictions(),
+        confidence=confidence,
+        prediction=prediction,
+        regression_metrics=empty_metrics,
+        confidence_metrics=empty_interval_metrics,
+        prediction_metrics=empty_interval_metrics,
+    )
+
+
+def test_plot_intervals_hconcats_one_panel_per_model(
+    dataset: DataFrame[TrainingData],
+    synthetic_report: ModelComparisonReport,
+) -> None:
+    chart = plot_intervals(dataset, synthetic_report)
+    assert isinstance(chart, alt.HConcatChart)
+    assert len(chart.hconcat) == 2
+
+
+def test_plot_intervals_each_panel_layers_four_marks(
+    dataset: DataFrame[TrainingData],
+    synthetic_report: ModelComparisonReport,
+) -> None:
+    chart = plot_intervals(dataset, synthetic_report)
+    for panel in chart.hconcat:
+        assert panel.layer is not None
+        assert len(panel.layer) == 4
+        scatter, prediction_band, confidence_band, line = panel.layer
+        assert scatter.mark.type == "circle"
+        assert prediction_band.mark.type == "errorband"
+        assert confidence_band.mark.type == "errorband"
+        assert line.mark.type == "line"

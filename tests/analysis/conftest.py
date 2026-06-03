@@ -1,6 +1,28 @@
 import pytest
 
-from core import Settings
+from core import ModelKind, Settings
+from prediction import (
+    MultiRegressor,
+    random_forest_regressor,
+    regression_pipeline,
+    svm_regressor,
+)
+
+
+@pytest.fixture
+def two_model_regressors(settings: Settings) -> MultiRegressor:
+    return MultiRegressor(
+        estimators=[
+            (
+                ModelKind.RANDOM_FOREST.value,
+                regression_pipeline(random_forest_regressor(settings), settings),
+            ),
+            (
+                ModelKind.SVM.value,
+                regression_pipeline(svm_regressor(settings), settings),
+            ),
+        ],
+    )
 
 
 @pytest.fixture

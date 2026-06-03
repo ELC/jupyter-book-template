@@ -31,6 +31,14 @@ class SplitKind(StrEnum):
     EVALUATION = auto()
 
 
+class ModelKind(StrEnum):
+    RANDOM_FOREST = "random_forest"
+    SVM = "svm"
+
+
+_MODEL_FIELD = pa.Field(isin=[member.value for member in ModelKind])
+
+
 class TrainingData(pa.DataFrameModel):
     x: Series[float] = _X_FIELD
     y: Series[float]
@@ -122,3 +130,37 @@ class IntervalMetricReport(pa.DataFrameModel):
     kind: Series[str] = pa.Field(isin=[member.value for member in IntervalKind])
     metric: Series[str] = pa.Field(isin=[member.value for member in IntervalMetricKind])
     value: Series[float]
+
+
+class PredictionsByModel(PredictionsWithGroundTruth):
+    model: Series[str] = _MODEL_FIELD
+
+
+class ConfidenceIntervalByModel(IntervalBase):
+    kind: Series[str] = pa.Field(
+        default=IntervalKind.CONFIDENCE.value,
+        eq=IntervalKind.CONFIDENCE.value,
+    )
+    model: Series[str] = _MODEL_FIELD
+
+    class Config:
+        add_missing_columns = True
+
+
+class PredictionIntervalByModel(IntervalBase):
+    kind: Series[str] = pa.Field(
+        default=IntervalKind.PREDICTION.value,
+        eq=IntervalKind.PREDICTION.value,
+    )
+    model: Series[str] = _MODEL_FIELD
+
+    class Config:
+        add_missing_columns = True
+
+
+class MetricReportByModel(MetricReport):
+    model: Series[str] = _MODEL_FIELD
+
+
+class IntervalMetricReportByModel(IntervalMetricReport):
+    model: Series[str] = _MODEL_FIELD

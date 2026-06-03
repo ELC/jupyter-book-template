@@ -36,7 +36,7 @@ def conformal_intervals(
     lower, upper = intervals[..., 0].T
     return pd.DataFrame(
         {
-            PredictionInterval.x: eval_split.x,
+            PredictionInterval.x: eval_split.x[:, 0],
             PredictionInterval.lower: lower,
             PredictionInterval.upper: upper,
         },

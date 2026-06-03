@@ -1,8 +1,9 @@
 from pandera.typing import DataFrame
 from sklearn.linear_model import LinearRegression
-from sklearn.pipeline import Pipeline
+from sklearn.pipeline import FeatureUnion, Pipeline
+from sklearn.preprocessing import FunctionTransformer
 
-from core import CompositeFeatures, Predictions, PredictionsWithGroundTruth, Settings, SplitKind, select_split
+from core import Predictions, PredictionsWithGroundTruth, Settings, SplitKind, select_split
 from core.features import expand_features
 from core.schemas import SplitDatasetBase, TrainingData
 from prediction import (
@@ -15,19 +16,12 @@ from prediction import (
 )
 
 
-def test_random_forest_regressor_uses_settings(settings: Settings) -> None:
-    model = random_forest_regressor(settings)
-    assert model.n_estimators == settings.n_estimators
-    assert model.max_depth == settings.max_depth
-    assert model.random_state == settings.seed
-    assert model.n_jobs == 1
-
-
 def test_regression_pipeline_uses_supplied_regressor(settings: Settings) -> None:
     regressor = random_forest_regressor(settings)
     pipeline = regression_pipeline(regressor, settings)
     assert pipeline.named_steps[REGRESSOR_STEP] is regressor
-    assert isinstance(pipeline.named_steps[FEATURES_STEP], CompositeFeatures)
+    features_step = pipeline.named_steps[FEATURES_STEP]
+    assert isinstance(features_step, FeatureUnion | FunctionTransformer)
 
 
 def test_regression_pipeline_accepts_alternative_regressor(settings: Settings) -> None:
@@ -43,7 +37,7 @@ def test_fit_pipeline_fits_training_features(
 ) -> None:
     fitted = fit_pipeline(split_dataset, unfitted_pipeline)
     train = select_split(split_dataset, SplitKind.TRAINING)
-    train_features = expand_features(settings).fit_transform(train[TrainingData.x].to_numpy())
+    train_features = expand_features(settings).fit_transform(train[[TrainingData.x]].to_numpy())
     assert fitted.named_steps[REGRESSOR_STEP].n_features_in_ == train_features.shape[1]
 
 

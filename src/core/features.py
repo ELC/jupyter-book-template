@@ -3,10 +3,10 @@ from typing import NamedTuple
 import numpy as np
 import pandas as pd
 from pandera.typing import DataFrame
-from sklearn.base import TransformerMixin
-from sklearn.preprocessing import PolynomialFeatures
+from sklearn.base import BaseEstimator, TransformerMixin
+from sklearn.pipeline import make_union
+from sklearn.preprocessing import FunctionTransformer, PolynomialFeatures
 
-from core.composite_features import CompositeFeatures
 from core.fourier_features import FourierFeatures
 from core.schemas import SplitDatasetBase, SplitKind, TrainingData
 from core.settings import Settings
@@ -38,20 +38,20 @@ def _fourier_transformer(settings: Settings) -> FourierFeatures | None:
 
 def _transformers_from_settings(settings: Settings) -> list[TransformerMixin]:
     transformers: list[TransformerMixin] = []
-
     polynomial = _polynomial_transformer(settings)
     if polynomial is not None:
         transformers.append(polynomial)
-
     fourier = _fourier_transformer(settings)
     if fourier is not None:
         transformers.append(fourier)
-
     return transformers
 
 
-def expand_features(settings: Settings) -> CompositeFeatures:
-    return CompositeFeatures(transformers=_transformers_from_settings(settings))
+def expand_features(settings: Settings) -> BaseEstimator:
+    transformers = _transformers_from_settings(settings)
+    if not transformers:
+        return FunctionTransformer(validate=False)
+    return make_union(*transformers)
 
 
 def prepare_split(
@@ -60,6 +60,6 @@ def prepare_split(
 ) -> PreparedSplit:
     subset = select_split(data, split)
     return PreparedSplit(
-        x=subset[TrainingData.x].to_numpy(),
+        x=subset[[TrainingData.x]].to_numpy(),
         y=subset[TrainingData.y],
     )

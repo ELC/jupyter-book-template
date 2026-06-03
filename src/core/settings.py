@@ -24,6 +24,8 @@ class Settings(BaseSettings):
     trend_coefficient: float = 0.3
     polynomial_degree: int = Field(default=5, ge=0)
     fourier_terms: int = Field(default=6, ge=0)
+    svm_gamma: float = Field(default=0.1, gt=0)
+    svm_kernel: str = "rbf"
 
     @property
     def bootstrap_seed(self) -> int:

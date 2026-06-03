@@ -1,87 +1,120 @@
 import altair as alt
-import pandas as pd
 from pandera.typing import DataFrame
 
+from analysis.model_comparison import ModelComparisonReport
 from core.schemas import (
+    IntervalKind,
     IntervalMetricKind,
-    IntervalMetricReport,
-    MetricReport,
+    IntervalMetricReportByModel,
+    MetricReportByModel,
     RegressionMetricKind,
 )
 from visualization._common import configure_altair
-from visualization.theme import (
-    CHART_HEIGHT,
-    CHART_WIDTH,
-    INTERVAL_COLOR_DOMAIN,
-    INTERVAL_COLOR_RANGE,
-)
+
+_REGRESSION_FACET_WIDTH = 420
+_REGRESSION_FACET_HEIGHT = 180
+_INTERVAL_FACET_WIDTH = 420
+_INTERVAL_FACET_HEIGHT = 160
+_INTERVAL_TICK_THICKNESS = 4
+_INTERVAL_TICK_SIZE = 36
 
 
-def plot_regression_metrics(metrics: DataFrame[MetricReport]) -> alt.FacetChart | alt.LayerChart:
+def _regression_metric_layers(
+    metrics: DataFrame[MetricReportByModel],
+) -> alt.LayerChart:
+    color = alt.Color(
+        f"{MetricReportByModel.model}:N",
+        legend=alt.Legend(title="Model"),
+    )
+    tooltip = [
+        f"{MetricReportByModel.model}:N",
+        f"{MetricReportByModel.metric}:N",
+        f"{MetricReportByModel.lower}:Q",
+        f"{MetricReportByModel.upper}:Q",
+    ]
+    base = alt.Chart(metrics).encode(
+        y=alt.Y(f"{MetricReportByModel.model}:N", title=None),
+        color=color,
+        tooltip=tooltip,
+    )
+    range_rule = base.mark_rule(size=3).encode(
+        x=alt.X(f"{MetricReportByModel.lower}:Q", title="Metric value"),
+        x2=f"{MetricReportByModel.upper}:Q",
+    )
+    lower_tick = base.mark_tick(thickness=2, size=18).encode(
+        x=alt.X(f"{MetricReportByModel.lower}:Q", title="Metric value"),
+    )
+    upper_tick = base.mark_tick(thickness=2, size=18).encode(
+        x=alt.X(f"{MetricReportByModel.upper}:Q", title="Metric value"),
+    )
+    return alt.layer(range_rule, lower_tick, upper_tick)
+
+
+def plot_regression_metrics(report: ModelComparisonReport) -> alt.FacetChart:
     configure_altair()
+    layered = _regression_metric_layers(report.regression_metrics).properties(
+        width=_REGRESSION_FACET_WIDTH,
+        height=_REGRESSION_FACET_HEIGHT,
+    )
     return (
+        layered
+        .facet(
+            column=alt.Column(
+                f"{MetricReportByModel.metric}:N",
+                sort=[member.value for member in RegressionMetricKind],
+                title=None,
+            ),
+        )
+        .resolve_scale(x="independent")
+        .properties(title="Regression metrics (bootstrap CI)")
+    )
+
+
+def _interval_kind_chart(
+    metrics: DataFrame[IntervalMetricReportByModel],
+    kind: IntervalKind,
+) -> alt.FacetChart:
+    point = (
         alt
         .Chart(metrics)
-        .mark_errorbar(ticks=True)
+        .mark_tick(
+            thickness=_INTERVAL_TICK_THICKNESS,
+            size=_INTERVAL_TICK_SIZE,
+            orient="vertical",
+        )
         .encode(
-            x=alt.X(
-                f"{MetricReport.metric}:N",
-                title=None,
-                sort=[member.value for member in RegressionMetricKind],
+            y=alt.Y(f"{IntervalMetricReportByModel.model}:N", title=None),
+            x=alt.X(f"{IntervalMetricReportByModel.value}:Q", title="Score"),
+            color=alt.Color(
+                f"{IntervalMetricReportByModel.model}:N",
+                legend=alt.Legend(title="Model"),
             ),
-            y=alt.Y(f"{MetricReport.lower}:Q", title="Metric value"),
-            y2=f"{MetricReport.upper}:Q",
             tooltip=[
-                f"{MetricReport.metric}:N",
-                f"{MetricReport.lower}:Q",
-                f"{MetricReport.upper}:Q",
+                f"{IntervalMetricReportByModel.model}:N",
+                f"{IntervalMetricReportByModel.metric}:N",
+                f"{IntervalMetricReportByModel.value}:Q",
             ],
         )
-        .properties(
-            width=CHART_WIDTH,
-            height=CHART_HEIGHT,
-            title="Regression metrics (bootstrap CI)",
-        )
-    )
-
-
-def plot_interval_metrics(
-    confidence: DataFrame[IntervalMetricReport],
-    prediction: DataFrame[IntervalMetricReport],
-) -> alt.FacetChart | alt.LayerChart:
-    configure_altair()
-    report = pd.concat([confidence, prediction], ignore_index=True).pipe(
-        DataFrame[IntervalMetricReport],
+        .properties(width=_INTERVAL_FACET_WIDTH, height=_INTERVAL_FACET_HEIGHT)
     )
     return (
-        alt
-        .Chart(report)
-        .mark_bar(width=20)
-        .encode(
-            x=alt.X(
-                f"{IntervalMetricReport.metric}:N",
-                title=None,
+        point
+        .facet(
+            column=alt.Column(
+                f"{IntervalMetricReportByModel.metric}:N",
                 sort=[member.value for member in IntervalMetricKind],
+                title=None,
             ),
-            xOffset=alt.XOffset(f"{IntervalMetricReport.kind}:N"),
-            y=alt.Y(f"{IntervalMetricReport.value}:Q", title="Score"),
-            color=alt.Color(
-                f"{IntervalMetricReport.kind}:N",
-                title="Interval",
-                scale=alt.Scale(
-                    domain=INTERVAL_COLOR_DOMAIN,
-                    range=INTERVAL_COLOR_RANGE,
-                ),
-            ),
-            tooltip=[
-                f"{IntervalMetricReport.kind}:N",
-                f"{IntervalMetricReport.metric}:N",
-                f"{IntervalMetricReport.value}:Q",
-            ],
         )
-        .properties(
-            width=CHART_WIDTH,
-            height=CHART_HEIGHT,
-            title="Interval quality metrics",
-        )
+        .resolve_scale(x="independent")
+        .properties(title=f"{kind.value.title()} intervals")
+    )
+
+
+def plot_interval_metrics(report: ModelComparisonReport) -> alt.VConcatChart:
+    configure_altair()
+    confidence_chart = _interval_kind_chart(report.confidence_metrics, IntervalKind.CONFIDENCE)
+    prediction_chart = _interval_kind_chart(report.prediction_metrics, IntervalKind.PREDICTION)
+    return alt.vconcat(confidence_chart, prediction_chart).properties(
+        title="Interval quality metrics",
     )

@@ -28,9 +28,9 @@ def _fit_and_predict(
     train: DataFrame[TrainingData],
     eval_data: DataFrame[TrainingData],
 ) -> np.ndarray:
-    train_x = train[TrainingData.x].to_numpy()
+    train_x = train[[TrainingData.x]].to_numpy()
     train_y = train[TrainingData.y].to_numpy()
-    eval_x = eval_data[TrainingData.x].to_numpy()
+    eval_x = eval_data[[TrainingData.x]].to_numpy()
     fitted_pipeline = clone(pipeline)
     fitted_pipeline.fit(train_x, train_y)
     return fitted_pipeline.predict(eval_x)
