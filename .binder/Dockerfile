@@ -15,7 +15,7 @@ USER ${NB_UID}
 
 RUN --mount=type=bind,source=pyproject.toml,target=pyproject.toml \
     --mount=type=bind,source=uv.lock,target=uv.lock \
-    uv sync --all-groups --locked --no-install-project
+    uv sync --all-groups --locked
 
 RUN --mount=type=bind,source=.binder/bashrc-venv.sh,target=/mnt/bashrc-venv.sh,readonly \
     cat /mnt/bashrc-venv.sh >> .bashrc

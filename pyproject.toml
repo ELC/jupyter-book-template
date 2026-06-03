@@ -5,31 +5,51 @@ description = "Jupyter Book 2 template for MyST notebooks and GitHub Pages deplo
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
+  "altair>=5.4",
   "jupyter-book>=2,<3",
   "jupyterlab>=4.5",
+  "mapie>=1.0",
   "matplotlib>=3.10.8",
+  "numpy>=2.0",
   "pandas>=3.0.1",
-  "pandera>=0.30.1",
+  "pandera[mypy]>=0.30.1",
+  "pydantic-settings>=2.0",
+  "scikit-learn>=1.5",
+  "scipy>=1.14",
   "seaborn>=0.13.2",
+  "tqdm>=4.66",
+  "vl-convert-python>=1.7",
 ]
+
+[build-system]
+requires = ["uv_build>=0.11.18,<0.12"]
+build-backend = "uv_build"
 
 [dependency-groups]
 dev = [
+  "mypy>=2.1",
   "poethepoet>=0.37",
   "prek>=0.4",
+  "pylint>=4.0",
   "pytest>=8.3",
   "pytest-cov>=6.0",
+  "ruff>=0.15.15",
   "wheel>=0.46.3",
 ]
 
-[tool.uv]
-package = false
+[tool.uv.build-backend]
+module-name = ["core", "simulation", "analysis", "prediction", "visualization"]
 
 #########################
 # Tasks
 #########################
 
 [tool.poe.tasks]
+# Path scope for src/ and tests/ lives here (not in .pre-commit-config.yaml).
+lint = "ruff check --exit-non-zero-on-fix src tests"
+format = "ruff format src tests"
+pylint = "pylint src tests"
+mypy = "mypy src tests"
 test = "pytest"
 check = "prek run --all-files --verbose"
 
@@ -61,14 +81,22 @@ help = "Build the Binder Docker image (repo root context, .binder/Dockerfile)."
 cmd = "docker build --no-cache --file .binder/Dockerfile --tag jupyter-book-template:binder ."
 
 [tool.poe.tasks.ci]
-sequence = ["check", "build-book"]
+sequence = ["check", "test", "build-book"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = ["-vv", "--cov", "--cov-report=term-missing"]
 
 [tool.coverage.run]
-source = ["tests"]
+branch = true
+source = [
+  "src/core",
+  "src/simulation",
+  "src/analysis",
+  "src/prediction",
+  "src/visualization",
+  "tests",
+]
 
 [tool.coverage.report]
 fail_under = 100
@@ -95,6 +123,7 @@ exclude_lines = [
 strict = true
 follow_imports = "normal"
 python_version = "3.13"
+plugins = ["pandera.mypy"]
 disallow_any_unimported = true
 disallow_any_generics = true
 disallow_subclassing_any = true
@@ -104,8 +133,35 @@ disallow_untyped_defs = true
 disallow_untyped_decorators = true
 
 [[tool.mypy.overrides]]
-module = ["matplotlib.*", "seaborn.*"]
+module = [
+  "altair.*",
+  "joblib.*",
+  "matplotlib.*",
+  "seaborn.*",
+  "mapie.*",
+  "sklearn.*",
+  "tqdm.*",
+]
 ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = ["tests.*"]
+disallow_untyped_defs = false
+disallow_untyped_decorators = false
+disable_error_code = ["no-any-unimported"]
+
+[[tool.mypy.overrides]]
+module = [
+  "analysis.bootstrap",
+  "prediction.regression",
+  "prediction.conformal",
+  "visualization._common",
+  "visualization.plot_dataset",
+  "visualization.plot_intervals",
+  "core.features",
+  "simulation.generator",
+]
+disable_error_code = ["no-any-unimported", "no-any-return"]
 
 #########################
 # RUFF
@@ -117,6 +173,9 @@ preview = true
 unsafe-fixes = true
 line-length = 120
 extend-exclude = ["_build"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["PLR2004", "B017", "RUF069"]
 
 [tool.ruff.lint]
 extend-select = ["ALL"]

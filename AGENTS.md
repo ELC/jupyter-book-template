@@ -5,6 +5,13 @@ Guidance for AI agents working on **jupyter-book-template** — Jupyter Book 2 t
 ## Repository layout
 
 ```
+src/
+  core/                 # Pandera schemas and Settings
+  simulation/           # Synthetic data generation
+  analysis/             # Case bootstrap confidence intervals
+  prediction/           # MAPIE split conformal prediction intervals
+  visualization/        # Altair charts
+tests/                  # Pytest suite (mirrors src/ 1:1, 100% coverage)
 book/
   myst.yml              # Project + site configuration (TOC, theme, plugins)
   chapters/             # Book content (.md, .ipynb)
@@ -18,6 +25,18 @@ pyproject.toml          # Project metadata (jupyter-book-template), deps, Poe ta
 ```
 
 Build output goes to `book/_build/` (gitignored). Run book commands from the repo root via Poe; tasks set `cwd = "book"`.
+
+## Project source code
+
+Library code lives under `src/` as installable top-level packages (`core`, `simulation`,
+`analysis`, `prediction`, `visualization`). They are built with `uv_build` and installed
+editable on `uv sync` — chapters import them directly, never via `sys.path`.
+
+- Public DataFrame types are defined in `core.schemas` using Pandera `DataFrameModel`.
+- Do not use bare `pd.DataFrame` in function signatures; use `pandera.typing.DataFrame[Schema]`.
+- Tests mirror `src/` 1:1 under `tests/`; run with `uv run poe test`.
+- Lint/format/typecheck for `src/` and `tests/` are scoped in `[tool.poe.tasks]` (`lint`, `format`, `pylint`, `mypy`); pre-commit local hooks call those tasks so untracked files under those trees are still checked.
+- CI runs `uv run poe ci` (pre-commit, tests, book build).
 
 ## Initialize the template
 
@@ -82,7 +101,8 @@ Update README badges and links (project URL, Binder, Colab, GitHub Pages URL). R
 ```bash
 uv run poe build-book    # build static HTML with executed notebooks
 uv run poe serve-book    # build, then preview at http://localhost:8000
-uv run poe ci            # pre-commit checks + build (same as CI)
+uv run poe test          # run pytest with 100% coverage
+uv run poe ci            # pre-commit checks + tests + build (same as CI)
 ```
 
 CI (`.github/workflows/ci.yml`) runs on pushes to **`main`**, sets `BASE_URL=/<repo-name>` for project Pages, and deploys `book/_build/html`.
@@ -233,7 +253,10 @@ Python packages for notebook execution are declared in `pyproject.toml` under `[
 | Build + preview | `uv run poe serve-book` |
 | Lint + build (CI) | `uv run poe ci` |
 | Build Binder image | `uv run poe build-docker` |
-| Pre-commit only | `uv run poe check` |
+| Ruff lint (`src`, `tests`) | `uv run poe lint` |
+| Ruff format (`src`, `tests`) | `uv run poe format` |
+| Pylint / mypy (`src`, `tests`) | `uv run poe pylint` / `uv run poe mypy` |
+| Pre-commit (all hooks) | `uv run poe check` |
 | Clean build artifacts | `cd book && uv run jupyter book clean` |
 
 ## Conventions for agents

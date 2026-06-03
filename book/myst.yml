@@ -28,6 +28,9 @@ project:
       children:
         - file: chapters/01_markdown.md
         - file: chapters/02_jupyter.ipynb
+    - title: Using Project Code
+      children:
+        - file: chapters/03_using_src_code.ipynb
 
 site:
   template: book-theme
