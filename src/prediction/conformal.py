@@ -1,49 +1,43 @@
 import pandas as pd
 from mapie.regression import SplitConformalRegressor
 from pandera.typing import DataFrame
-from sklearn.base import clone
-from sklearn.ensemble import RandomForestRegressor
+from sklearn.base import RegressorMixin, clone
 
-from core.features import expand_features
-from core.schemas import PredictionInterval, SplitDatasetBase, SplitKind, TrainingData
+from core.features import expand_features, prepare_split
+from core.schemas import PredictionInterval, SplitDatasetBase, SplitKind
 from core.settings import Settings
-from core.splits import select_split
 
 
 def fit_conformal(
     data: DataFrame[SplitDatasetBase],
-    model: RandomForestRegressor,
+    model: RegressorMixin,
     settings: Settings,
 ) -> SplitConformalRegressor:
     estimator = clone(model)
-    train = select_split(data, SplitKind.TRAINING)
-    calib = select_split(data, SplitKind.CALIBRATION)
-    train_x = expand_features(train[TrainingData.x].to_numpy(), settings)
-    calib_x = expand_features(calib[TrainingData.x].to_numpy(), settings)
-    train_y = train[TrainingData.y]
-    calib_y = calib[TrainingData.y]
+    transformer = expand_features(settings)
+    train = prepare_split(data, SplitKind.TRAINING, settings, transformer=transformer)
+    calib = prepare_split(data, SplitKind.CALIBRATION, settings, transformer=transformer)
     conformal = SplitConformalRegressor(
         estimator=estimator,
         confidence_level=settings.confidence_level,
         prefit=False,
     )
-    conformal.fit(train_x, train_y)
-    conformal.conformalize(calib_x, calib_y)
+    conformal.fit(train.features, train.y)
+    conformal.conformalize(calib.features, calib.y)
     return conformal
 
 
 def conformal_intervals(
     model: SplitConformalRegressor,
     data: DataFrame[SplitDatasetBase],
-    _settings: Settings,
+    settings: Settings,
 ) -> DataFrame[PredictionInterval]:
-    eval_data = select_split(data, SplitKind.EVALUATION)
-    eval_x = expand_features(eval_data[TrainingData.x].to_numpy(), _settings)
-    _, intervals = model.predict_interval(eval_x)
+    eval_split = prepare_split(data, SplitKind.EVALUATION, settings)
+    _, intervals = model.predict_interval(eval_split.features)
     lower, upper = intervals[..., 0].T
     return pd.DataFrame(
         {
-            PredictionInterval.x: eval_data[TrainingData.x].to_numpy(),
+            PredictionInterval.x: eval_split.x,
             PredictionInterval.lower: lower,
             PredictionInterval.upper: upper,
         },

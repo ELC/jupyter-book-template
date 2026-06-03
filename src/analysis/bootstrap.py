@@ -4,9 +4,8 @@ import numpy as np
 import pandas as pd
 from joblib import Parallel, delayed
 from pandera.typing import DataFrame
-from sklearn.base import clone
-from sklearn.ensemble import RandomForestRegressor
-from tqdm.auto import tqdm
+from sklearn.base import RegressorMixin, clone
+from tqdm import tqdm
 
 from core.features import expand_features
 from core.schemas import ConfidenceInterval, SplitDatasetBase, SplitKind, TrainingData
@@ -25,7 +24,7 @@ class BootstrapFitResult(NamedTuple):
 
 
 def _fit_and_predict(
-    model: RandomForestRegressor,
+    model: RegressorMixin,
     train: DataFrame[TrainingData],
     eval_data: DataFrame[TrainingData],
     settings: Settings,
@@ -34,8 +33,9 @@ def _fit_and_predict(
     train_y = train[TrainingData.y].to_numpy()
     eval_x = eval_data[TrainingData.x].to_numpy()
     fitted_model = clone(model)
-    train_features = expand_features(train_x, settings)
-    eval_features = expand_features(eval_x, settings)
+    transformer = expand_features(settings)
+    train_features = transformer.fit_transform(train_x)
+    eval_features = transformer.transform(eval_x)
     fitted_model.fit(train_features, train_y)
     return fitted_model.predict(eval_features)
 
@@ -44,12 +44,12 @@ _delayed_fit_and_predict = delayed(_fit_and_predict)
 
 
 def _collect_bootstrap_predictions(
-    model: RandomForestRegressor,
+    model: RegressorMixin,
     train: DataFrame[TrainingData],
     eval_data: DataFrame[TrainingData],
     settings: Settings,
 ) -> np.ndarray:
-    rng = np.random.default_rng(settings.rng)
+    rng = np.random.default_rng(settings.bootstrap_seed)
     resample_indices = rng.integers(0, len(train), size=(settings.n_resamples, len(train)))
     bootstrap_tasks = (
         _delayed_fit_and_predict(
@@ -62,23 +62,22 @@ def _collect_bootstrap_predictions(
     )
     parallel_executor = Parallel(n_jobs=settings.bootstrap_n_jobs, return_as="generator")
     parallel_resamples = parallel_executor(bootstrap_tasks)
-    boot_preds = list(
-        tqdm(
-            parallel_resamples,
-            total=settings.n_resamples,
-            desc="Bootstrap resamples",
-        ),
-    )
+    boot_preds = list(tqdm(parallel_resamples, total=settings.n_resamples, desc="Bootstrap"))
     return np.asarray(boot_preds)
 
 
 def _run_bootstrap_resamples(
-    model: RandomForestRegressor,
+    model: RegressorMixin,
     train: DataFrame[TrainingData],
     eval_data: DataFrame[TrainingData],
     settings: Settings,
 ) -> BootstrapFitResult:
-    bootstrap_array = _collect_bootstrap_predictions(model, train, eval_data, settings)
+    bootstrap_array = _collect_bootstrap_predictions(
+        model,
+        train,
+        eval_data,
+        settings,
+    )
     theta_hat = _fit_and_predict(model, train, eval_data, settings)
     return BootstrapFitResult(bootstrap_array, theta_hat, eval_data)
 
@@ -94,7 +93,7 @@ def _basic_confidence_interval(
 
 
 def bootstrap_confidence_intervals(
-    model: RandomForestRegressor,
+    model: RegressorMixin,
     data: DataFrame[SplitDatasetBase],
     settings: Settings,
 ) -> DataFrame[ConfidenceInterval]:

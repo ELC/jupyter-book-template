@@ -10,6 +10,29 @@ This repository is a **manual** template: you edit some settings by hand after f
 
 Check the final result [online](https://elc.github.io/jupyter-book-template/)
 
+## What ships in `src/`
+
+Beyond the book template, this repository includes a **typed ML demo library** (~500 LOC) that chapters import directly after `uv sync`:
+
+| Package | Role |
+|---------|------|
+| `core` | Pandera schemas, `Settings`, sklearn `RegressorMixin` / `TransformerMixin`, `prepare_split` |
+| `simulation` | Synthetic regression dataset |
+| `prediction` | Random forest + MAPIE split conformal intervals |
+| `analysis` | Case bootstrap confidence intervals (`tqdm` progress) |
+| `evaluation` | Bootstrap CIs for regression metrics; MAPIE width/MWI for intervals |
+| `visualization` | Altair plots with shared theme constants |
+
+See [`book/chapters/03_using_src_code.ipynb`](book/chapters/03_using_src_code.ipynb) for the end-to-end notebook walkthrough (data → train → bootstrap CI → conformal PI → metrics → plots).
+
+Developer commands:
+
+```bash
+uv sync --all-groups
+uv run poe test          # 100% coverage gate
+uv run poe ci            # pre-commit + tests + book build
+```
+
 ## Testing a branch before merging
 
 Use this when a pull request changes Binder (`.binder/`), Python dependencies, or in-page execution—and you want to verify the environment before merging to **`main`**.

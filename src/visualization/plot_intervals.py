@@ -1,23 +1,29 @@
 import altair as alt
-import pandas as pd
 from pandera.typing import DataFrame
 
 from core.schemas import (
     ConfidenceInterval,
-    IntervalKind,
     PredictionInterval,
     Predictions,
     PredictionsWithGroundTruth,
     TrainingData,
 )
 from visualization._common import configure_altair
+from visualization.theme import (
+    CHART_HEIGHT,
+    CHART_WIDTH,
+    INTERVAL_BAND_OPACITY,
+    INTERVAL_COLOR_DOMAIN,
+    INTERVAL_COLOR_RANGE,
+    SCATTER_OPACITY,
+)
 
 
-def _data_scatter(data: pd.DataFrame) -> alt.Chart:
+def _data_scatter(data: DataFrame[TrainingData]) -> alt.Chart:
     return (
         alt
         .Chart(data)
-        .mark_circle(opacity=0.35, size=30)
+        .mark_circle(opacity=SCATTER_OPACITY, size=30)
         .encode(
             x=alt.X(f"{TrainingData.x}:Q", title="x"),
             y=alt.Y(f"{TrainingData.y}:Q", title="y"),
@@ -41,21 +47,23 @@ def _prediction_line(
     )
 
 
-def _interval_bands(intervals: pd.DataFrame) -> alt.Chart:
+def _interval_band(
+    intervals: DataFrame[ConfidenceInterval] | DataFrame[PredictionInterval],
+) -> alt.Chart:
     return (
         alt
         .Chart(intervals)
-        .mark_errorband(opacity=0.35)
+        .mark_errorband(opacity=INTERVAL_BAND_OPACITY)
         .encode(
             x=f"{ConfidenceInterval.x}:Q",
             y=f"{ConfidenceInterval.lower}:Q",
             y2=f"{ConfidenceInterval.upper}:Q",
             color=alt.Color(
-                "kind:N",
+                f"{ConfidenceInterval.kind}:N",
                 title="Interval",
                 scale=alt.Scale(
-                    domain=[member.value for member in IntervalKind],
-                    range=["#1f77b4", "#ff7f0e"],
+                    domain=INTERVAL_COLOR_DOMAIN,
+                    range=INTERVAL_COLOR_RANGE,
                 ),
             ),
         )
@@ -63,19 +71,19 @@ def _interval_bands(intervals: pd.DataFrame) -> alt.Chart:
 
 
 def plot_intervals(
-    data: pd.DataFrame,
+    data: DataFrame[TrainingData],
     predictions: DataFrame[Predictions] | DataFrame[PredictionsWithGroundTruth],
     confidence: DataFrame[ConfidenceInterval],
     prediction: DataFrame[PredictionInterval],
 ) -> alt.FacetChart | alt.LayerChart:
     configure_altair()
-    intervals = pd.concat([confidence, prediction], ignore_index=True)
     return alt.layer(
         _data_scatter(data),
-        _interval_bands(intervals),
+        _interval_band(prediction),
+        _interval_band(confidence),
         _prediction_line(predictions),
     ).properties(
-        width=640,
-        height=400,
+        width=CHART_WIDTH,
+        height=CHART_HEIGHT,
         title="Random forest predictions with bootstrap CI and conformal PI",
     )

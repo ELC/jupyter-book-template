@@ -22,7 +22,7 @@ def test_fit_random_forest_fits_training_features(
 ) -> None:
     fitted = fit_random_forest(split_dataset, unfitted_regressor, settings)
     train = select_split(split_dataset, SplitKind.TRAINING)
-    train_features = expand_features(train[TrainingData.x].to_numpy(), settings)
+    train_features = expand_features(settings).fit_transform(train[TrainingData.x].to_numpy())
     assert fitted.n_features_in_ == train_features.shape[1]
 
 
@@ -30,10 +30,10 @@ def test_predict_returns_subset_for_selected_split(
     split_dataset: DataFrame[SplitDatasetBase],
     settings: Settings,
     fitted_model: RandomForestRegressor,
-    selected_predict_split: SplitKind,
+    selected_split_kind: SplitKind,
 ) -> None:
-    predictions = predict(fitted_model, split_dataset, settings, split=selected_predict_split)
-    expected = select_split(split_dataset, selected_predict_split)
+    predictions = predict(fitted_model, split_dataset, settings, split=selected_split_kind)
+    expected = select_split(split_dataset, selected_split_kind)
     assert len(predictions) == len(expected)
     assert PredictionsWithGroundTruth.y_true in predictions.columns
     assert predictions[Predictions.x].tolist() == expected[TrainingData.x].tolist()

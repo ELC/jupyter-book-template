@@ -1,12 +1,11 @@
 import pandas as pd
 from pandera.typing import DataFrame
-from sklearn.base import clone
+from sklearn.base import RegressorMixin, clone
 from sklearn.ensemble import RandomForestRegressor
 
-from core.features import expand_features
-from core.schemas import Predictions, PredictionsWithGroundTruth, SplitDatasetBase, SplitKind, TrainingData
+from core.features import prepare_split
+from core.schemas import Predictions, PredictionsWithGroundTruth, SplitDatasetBase, SplitKind
 from core.settings import Settings
-from core.splits import select_split
 
 
 def random_forest_regressor(settings: Settings) -> RandomForestRegressor:
@@ -20,30 +19,29 @@ def random_forest_regressor(settings: Settings) -> RandomForestRegressor:
 
 def fit_random_forest(
     data: DataFrame[SplitDatasetBase],
-    model: RandomForestRegressor,
+    model: RegressorMixin,
     settings: Settings,
 ) -> RandomForestRegressor:
     fitted = clone(model)
-    train = select_split(data, SplitKind.TRAINING)
-    train_x = expand_features(train[TrainingData.x].to_numpy(), settings)
-    train_y = train[TrainingData.y]
-    fitted.fit(train_x, train_y)
+    train = prepare_split(data, SplitKind.TRAINING, settings)
+    fitted.fit(train.features, train.y)
     return fitted
 
 
 def predict(
-    model: RandomForestRegressor,
+    model: RegressorMixin,
     data: DataFrame[SplitDatasetBase],
     settings: Settings,
     *,
     split: SplitKind = SplitKind.EVALUATION,
 ) -> DataFrame[PredictionsWithGroundTruth]:
-    eval_data = select_split(data, split)
-    eval_x = expand_features(eval_data[TrainingData.x].to_numpy(), settings)
+    split_data = prepare_split(data, split, settings)
+    y_pred = model.predict(split_data.features)
+    y_true = split_data.y.to_numpy()
     return pd.DataFrame(
         {
-            Predictions.x: eval_data[TrainingData.x].to_numpy(),
-            Predictions.y_pred: model.predict(eval_x),
-            PredictionsWithGroundTruth.y_true: eval_data[TrainingData.y].to_numpy(),
+            Predictions.x: split_data.x,
+            Predictions.y_pred: y_pred,
+            PredictionsWithGroundTruth.y_true: y_true,
         },
     ).pipe(DataFrame[PredictionsWithGroundTruth])

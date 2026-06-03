@@ -38,7 +38,7 @@ dev = [
 ]
 
 [tool.uv.build-backend]
-module-name = ["core", "simulation", "analysis", "prediction", "visualization"]
+module-name = ["core", "simulation", "analysis", "prediction", "visualization", "evaluation"]
 
 #########################
 # Tasks
@@ -85,18 +85,11 @@ sequence = ["check", "test", "build-book"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = ["-vv", "--cov", "--cov-report=term-missing"]
+addopts = ["-vv", "--cov", "--cov-report=term-missing", "--cov-report=xml"]
 
 [tool.coverage.run]
 branch = true
-source = [
-  "src/core",
-  "src/simulation",
-  "src/analysis",
-  "src/prediction",
-  "src/visualization",
-  "tests",
-]
+source_pkgs = ["core", "simulation", "analysis", "prediction", "visualization", "evaluation"]
 
 [tool.coverage.report]
 fail_under = 100
@@ -150,18 +143,17 @@ disallow_untyped_defs = false
 disallow_untyped_decorators = false
 disable_error_code = ["no-any-unimported"]
 
+# sklearn/mapie/altair return untyped Any; relax only for ML/visualization touchpoints.
 [[tool.mypy.overrides]]
 module = [
-  "analysis.bootstrap",
-  "prediction.regression",
-  "prediction.conformal",
-  "visualization._common",
-  "visualization.plot_dataset",
-  "visualization.plot_intervals",
+  "analysis.*",
+  "prediction.*",
+  "visualization.*",
+  "evaluation.*",
   "core.features",
   "simulation.generator",
 ]
-disable_error_code = ["no-any-unimported", "no-any-return"]
+disable_error_code = ["no-any-unimported", "no-any-return", "valid-type", "misc"]
 
 #########################
 # RUFF
@@ -175,12 +167,13 @@ line-length = 120
 extend-exclude = ["_build"]
 
 [tool.ruff.lint.per-file-ignores]
-"tests/**" = ["PLR2004", "B017", "RUF069"]
+"src/**/*.py" = ["D"]
+"src/**/__init__.py" = []
+"tests/**" = ["D", "PLR2004", "B017", "RUF069"]
 
 [tool.ruff.lint]
 extend-select = ["ALL"]
 ignore = [
-  "D",                   # pydocstyle
   "CPY",                 # copyright notices
   "S101",                # assert usage
   "ISC001",              # implicit string concat

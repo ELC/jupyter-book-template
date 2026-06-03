@@ -1,12 +1,21 @@
+from typing import cast
+
 import pytest
 from pandera.typing import DataFrame
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.model_selection import train_test_split
 
-from core import Settings, TrainingData, build_split_dataset
+from core import Settings, SplitKind, TrainingData, build_split_dataset
 from core.schemas import SplitDatasetBase
 from prediction import fit_random_forest, random_forest_regressor
 from simulation import generate_dataset
+
+
+@pytest.fixture(
+    params=[pytest.param(split_kind, id=split_kind.value) for split_kind in SplitKind],
+)
+def selected_split_kind(request: pytest.FixtureRequest) -> SplitKind:
+    return cast("SplitKind", request.param)
 
 
 @pytest.fixture

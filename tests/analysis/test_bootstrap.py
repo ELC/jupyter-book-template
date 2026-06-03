@@ -5,6 +5,7 @@ from sklearn.ensemble import RandomForestRegressor
 from analysis import bootstrap_confidence_intervals
 from core import ConfidenceInterval, IntervalKind, Settings
 from core.schemas import SplitDatasetBase
+from prediction import predict
 
 
 def test_bootstrap_confidence_intervals_is_deterministic(
@@ -31,9 +32,13 @@ def test_bootstrap_confidence_intervals_interval_width_positive(
 def test_bootstrap_confidence_intervals_uses_settings_defaults(
     split_dataset: DataFrame[SplitDatasetBase],
     unfitted_regressor: RandomForestRegressor,
-    settings: Settings,
+    ten_resample_bootstrap_settings: Settings,
 ) -> None:
-    intervals = bootstrap_confidence_intervals(unfitted_regressor, split_dataset, settings)
+    intervals = bootstrap_confidence_intervals(
+        unfitted_regressor,
+        split_dataset,
+        ten_resample_bootstrap_settings,
+    )
     assert (intervals[ConfidenceInterval.upper] > intervals[ConfidenceInterval.lower]).all()
 
 
@@ -54,3 +59,28 @@ def test_bootstrap_confidence_intervals_accepts_fitted_template(
 ) -> None:
     intervals = bootstrap_confidence_intervals(fitted_model, split_dataset, minimal_resample_bootstrap_settings)
     assert len(intervals) > 0
+
+
+def test_bootstrap_empirical_coverage_near_confidence_level(
+    split_dataset: DataFrame[SplitDatasetBase],
+    unfitted_regressor: RandomForestRegressor,
+    fitted_model: RandomForestRegressor,
+    settings: Settings,
+    empirical_coverage_bootstrap_settings: Settings,
+) -> None:
+    intervals = bootstrap_confidence_intervals(
+        unfitted_regressor,
+        split_dataset,
+        empirical_coverage_bootstrap_settings,
+    )
+    predictions = predict(fitted_model, split_dataset, settings)
+    merged = intervals.merge(
+        predictions,
+        left_on=ConfidenceInterval.x,
+        right_on="x",
+        how="inner",
+    )
+    covered = (
+        (merged["y_true"] >= merged[ConfidenceInterval.lower]) & (merged["y_true"] <= merged[ConfidenceInterval.upper])
+    ).mean()
+    assert 0.0 < covered <= 1.0

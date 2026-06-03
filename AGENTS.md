@@ -6,11 +6,12 @@ Guidance for AI agents working on **jupyter-book-template** — Jupyter Book 2 t
 
 ```
 src/
-  core/                 # Pandera schemas and Settings
+  core/                 # Pandera schemas, Settings, Protocols, feature engineering
   simulation/           # Synthetic data generation
   analysis/             # Case bootstrap confidence intervals
   prediction/           # MAPIE split conformal prediction intervals
-  visualization/        # Altair charts
+  evaluation/           # Regression metrics and interval coverage reports
+  visualization/        # Altair charts and shared theme constants
 tests/                  # Pytest suite (mirrors src/ 1:1, 100% coverage)
 book/
   myst.yml              # Project + site configuration (TOC, theme, plugins)
@@ -29,14 +30,46 @@ Build output goes to `book/_build/` (gitignored). Run book commands from the rep
 ## Project source code
 
 Library code lives under `src/` as installable top-level packages (`core`, `simulation`,
-`analysis`, `prediction`, `visualization`). They are built with `uv_build` and installed
-editable on `uv sync` — chapters import them directly, never via `sys.path`.
+`analysis`, `prediction`, `evaluation`, `visualization`). They are built with
+`uv_build` and installed editable on `uv sync` — chapters import them directly, never via
+`sys.path`.
 
 - Public DataFrame types are defined in `core.schemas` using Pandera `DataFrameModel`.
 - Do not use bare `pd.DataFrame` in function signatures; use `pandera.typing.DataFrame[Schema]`.
 - Tests mirror `src/` 1:1 under `tests/`; run with `uv run poe test`.
-- Lint/format/typecheck for `src/` and `tests/` are scoped in `[tool.poe.tasks]` (`lint`, `format`, `pylint`, `mypy`); pre-commit local hooks call those tasks so untracked files under those trees are still checked.
-- CI runs `uv run poe ci` (pre-commit, tests, book build).
+- Lint/format/typecheck for `src/` and `tests/` are scoped in `[tool.poe.tasks]` (`lint`, `format`, `pylint`, `mypy`); pre-commit **local** hooks invoke those Poe tasks so `uv.lock` is the single source of tool versions.
+- CI runs split jobs: `lint` (`poe check`), `test` (`poe test` + coverage artifact), and `book` (`poe build-book`) when relevant paths change.
+
+### SOLID extension points
+
+Forks should extend behaviour through these seams rather than editing call sites:
+
+| Seam | Location | Purpose |
+|------|----------|---------|
+| `RegressorMixin` | `sklearn.base` | Swap sklearn estimators without touching bootstrap/conformal/regression |
+| `TransformerMixin` | `sklearn.base` | Inject feature pipelines; default is `expand_features(settings)` |
+| `prepare_split` | `core.features` | Single helper for split selection + feature expansion |
+| `visualization.theme` | `CHART_*`, `INTERVAL_COLOR_*` | Shared chart dimensions and palettes |
+
+### Pipeline data flow
+
+```mermaid
+flowchart LR
+  Settings --> generate_dataset
+  generate_dataset --> split
+  split --> fit_random_forest
+  fit_random_forest --> predict
+  predict --> regression_metrics
+  fit_random_forest --> bootstrap_confidence_intervals
+  fit_random_forest --> fit_conformal
+  fit_conformal --> conformal_intervals
+  bootstrap_confidence_intervals --> plot_intervals
+  conformal_intervals --> plot_intervals
+  conformal_intervals --> interval_metrics
+  bootstrap_confidence_intervals --> interval_metrics
+```
+
+Bootstrap resamples use `tqdm` for progress.
 
 ## Initialize the template
 
