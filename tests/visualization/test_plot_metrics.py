@@ -1,12 +1,18 @@
 import altair as alt
 from pandera.typing import DataFrame
-from sklearn.ensemble import RandomForestRegressor
+from sklearn.pipeline import Pipeline
 
 from analysis import bootstrap_confidence_intervals
 from core import Settings
 from core.schemas import SplitDatasetBase
 from evaluation import interval_metrics, regression_metrics
-from prediction import conformal_intervals, fit_conformal, predict, random_forest_regressor
+from prediction import (
+    conformal_intervals,
+    fit_conformal,
+    predict,
+    random_forest_regressor,
+    regression_pipeline,
+)
 from visualization import (
     CHART_HEIGHT,
     CHART_WIDTH,
@@ -17,10 +23,9 @@ from visualization import (
 
 def test_plot_regression_metrics_returns_errorbar_chart(
     split_dataset: DataFrame[SplitDatasetBase],
-    settings: Settings,
-    fitted_model: RandomForestRegressor,
+    fitted_pipeline: Pipeline,
 ) -> None:
-    predictions = predict(fitted_model, split_dataset, settings)
+    predictions = predict(fitted_pipeline, split_dataset)
     metrics = regression_metrics(predictions, settings=Settings(n_resamples=10, seed=0))
     chart = plot_regression_metrics(metrics)
     assert isinstance(chart, alt.Chart)
@@ -32,17 +37,18 @@ def test_plot_regression_metrics_returns_errorbar_chart(
 def test_plot_interval_metrics_groups_shared_metrics_by_kind(
     split_dataset: DataFrame[SplitDatasetBase],
     settings: Settings,
-    fitted_model: RandomForestRegressor,
-    unfitted_regressor: RandomForestRegressor,
+    fitted_pipeline: Pipeline,
+    unfitted_pipeline: Pipeline,
 ) -> None:
-    predictions = predict(fitted_model, split_dataset, settings)
+    predictions = predict(fitted_pipeline, split_dataset)
     confidence = bootstrap_confidence_intervals(
-        unfitted_regressor,
+        unfitted_pipeline,
         split_dataset,
         Settings(n_resamples=5, confidence_level=0.90, seed=0),
     )
-    conformal_model = fit_conformal(split_dataset, random_forest_regressor(settings), settings)
-    prediction = conformal_intervals(conformal_model, split_dataset, settings)
+    conformal_pipeline = regression_pipeline(random_forest_regressor(settings), settings)
+    conformal_model = fit_conformal(split_dataset, conformal_pipeline, settings)
+    prediction = conformal_intervals(conformal_model, split_dataset)
     ci_report = interval_metrics(confidence, predictions, settings=settings)
     pi_report = interval_metrics(prediction, predictions, settings=settings)
     chart = plot_interval_metrics(ci_report, pi_report)

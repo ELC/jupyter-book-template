@@ -4,10 +4,10 @@ import numpy as np
 import pandas as pd
 from joblib import Parallel, delayed
 from pandera.typing import DataFrame
-from sklearn.base import RegressorMixin, clone
+from sklearn.base import clone
+from sklearn.pipeline import Pipeline
 from tqdm import tqdm
 
-from core.features import expand_features
 from core.schemas import ConfidenceInterval, SplitDatasetBase, SplitKind, TrainingData
 from core.settings import Settings
 from core.splits import select_split
@@ -24,27 +24,23 @@ class BootstrapFitResult(NamedTuple):
 
 
 def _fit_and_predict(
-    model: RegressorMixin,
+    pipeline: Pipeline,
     train: DataFrame[TrainingData],
     eval_data: DataFrame[TrainingData],
-    settings: Settings,
 ) -> np.ndarray:
     train_x = train[TrainingData.x].to_numpy()
     train_y = train[TrainingData.y].to_numpy()
     eval_x = eval_data[TrainingData.x].to_numpy()
-    fitted_model = clone(model)
-    transformer = expand_features(settings)
-    train_features = transformer.fit_transform(train_x)
-    eval_features = transformer.transform(eval_x)
-    fitted_model.fit(train_features, train_y)
-    return fitted_model.predict(eval_features)
+    fitted_pipeline = clone(pipeline)
+    fitted_pipeline.fit(train_x, train_y)
+    return fitted_pipeline.predict(eval_x)
 
 
 _delayed_fit_and_predict = delayed(_fit_and_predict)
 
 
 def _collect_bootstrap_predictions(
-    model: RegressorMixin,
+    pipeline: Pipeline,
     train: DataFrame[TrainingData],
     eval_data: DataFrame[TrainingData],
     settings: Settings,
@@ -53,10 +49,9 @@ def _collect_bootstrap_predictions(
     resample_indices = rng.integers(0, len(train), size=(settings.n_resamples, len(train)))
     bootstrap_tasks = (
         _delayed_fit_and_predict(
-            model,
+            pipeline,
             train.iloc[resample_idx],
             eval_data,
-            settings,
         )
         for resample_idx in resample_indices
     )
@@ -67,18 +62,18 @@ def _collect_bootstrap_predictions(
 
 
 def _run_bootstrap_resamples(
-    model: RegressorMixin,
+    pipeline: Pipeline,
     train: DataFrame[TrainingData],
     eval_data: DataFrame[TrainingData],
     settings: Settings,
 ) -> BootstrapFitResult:
     bootstrap_array = _collect_bootstrap_predictions(
-        model,
+        pipeline,
         train,
         eval_data,
         settings,
     )
-    theta_hat = _fit_and_predict(model, train, eval_data, settings)
+    theta_hat = _fit_and_predict(pipeline, train, eval_data)
     return BootstrapFitResult(bootstrap_array, theta_hat, eval_data)
 
 
@@ -93,13 +88,13 @@ def _basic_confidence_interval(
 
 
 def bootstrap_confidence_intervals(
-    model: RegressorMixin,
+    pipeline: Pipeline,
     data: DataFrame[SplitDatasetBase],
     settings: Settings,
 ) -> DataFrame[ConfidenceInterval]:
     train = select_split(data, SplitKind.TRAINING)
     eval_data = select_split(data, SplitKind.EVALUATION)
-    fit = _run_bootstrap_resamples(model, train, eval_data, settings)
+    fit = _run_bootstrap_resamples(pipeline, train, eval_data, settings)
     lower, upper = _basic_confidence_interval(fit, settings)
     return pd.DataFrame(
         {

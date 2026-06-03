@@ -1,11 +1,17 @@
 import altair as alt
 from pandera.typing import DataFrame
-from sklearn.ensemble import RandomForestRegressor
+from sklearn.pipeline import Pipeline
 
 from analysis import bootstrap_confidence_intervals
 from core import Settings, TrainingData
 from core.schemas import SplitDatasetBase
-from prediction import conformal_intervals, fit_conformal, predict, random_forest_regressor
+from prediction import (
+    conformal_intervals,
+    fit_conformal,
+    predict,
+    random_forest_regressor,
+    regression_pipeline,
+)
 from visualization import CHART_HEIGHT, CHART_WIDTH, plot_intervals
 from visualization.theme import SCATTER_OPACITY
 
@@ -14,18 +20,18 @@ def test_plot_intervals_returns_layer_chart(
     dataset: DataFrame[TrainingData],
     settings: Settings,
     split_dataset: DataFrame[SplitDatasetBase],
-    fitted_model: RandomForestRegressor,
-    unfitted_regressor: RandomForestRegressor,
+    fitted_pipeline: Pipeline,
+    unfitted_pipeline: Pipeline,
 ) -> None:
-    predictions = predict(fitted_model, split_dataset, settings)
+    predictions = predict(fitted_pipeline, split_dataset)
     confidence = bootstrap_confidence_intervals(
-        unfitted_regressor,
+        unfitted_pipeline,
         split_dataset,
         Settings(n_resamples=10, confidence_level=0.90, seed=0),
     )
-    conformal_regressor = random_forest_regressor(settings)
-    conformal_model = fit_conformal(split_dataset, conformal_regressor, settings)
-    prediction = conformal_intervals(conformal_model, split_dataset, settings)
+    conformal_pipeline = regression_pipeline(random_forest_regressor(settings), settings)
+    conformal_model = fit_conformal(split_dataset, conformal_pipeline, settings)
+    prediction = conformal_intervals(conformal_model, split_dataset)
     chart = plot_intervals(dataset, predictions, confidence, prediction)
     assert isinstance(chart, alt.LayerChart)
     assert chart.layer is not None
@@ -38,17 +44,18 @@ def test_plot_intervals_layer_encodings(
     dataset: DataFrame[TrainingData],
     settings: Settings,
     split_dataset: DataFrame[SplitDatasetBase],
-    fitted_model: RandomForestRegressor,
-    unfitted_regressor: RandomForestRegressor,
+    fitted_pipeline: Pipeline,
+    unfitted_pipeline: Pipeline,
 ) -> None:
-    predictions = predict(fitted_model, split_dataset, settings)
+    predictions = predict(fitted_pipeline, split_dataset)
     confidence = bootstrap_confidence_intervals(
-        unfitted_regressor,
+        unfitted_pipeline,
         split_dataset,
         Settings(n_resamples=5, confidence_level=0.90, seed=0),
     )
-    conformal_model = fit_conformal(split_dataset, random_forest_regressor(settings), settings)
-    prediction = conformal_intervals(conformal_model, split_dataset, settings)
+    conformal_pipeline = regression_pipeline(random_forest_regressor(settings), settings)
+    conformal_model = fit_conformal(split_dataset, conformal_pipeline, settings)
+    prediction = conformal_intervals(conformal_model, split_dataset)
     chart = plot_intervals(dataset, predictions, confidence, prediction)
     assert chart.layer is not None
     scatter, prediction_band, confidence_band, line = chart.layer

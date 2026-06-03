@@ -46,9 +46,9 @@ Forks should extend behaviour through these seams rather than editing call sites
 
 | Seam | Location | Purpose |
 |------|----------|---------|
-| `RegressorMixin` | `sklearn.base` | Swap sklearn estimators without touching bootstrap/conformal/regression |
-| `TransformerMixin` | `sklearn.base` | Inject feature pipelines; default is `expand_features(settings)` |
-| `prepare_split` | `core.features` | Single helper for split selection + feature expansion |
+| `RegressorMixin` | `sklearn.base` | Swap sklearn estimators by passing them to `regression_pipeline(regressor, settings)` |
+| `regression_pipeline` | `prediction.regression` | Wraps `expand_features(settings)` + regressor as a `sklearn.pipeline.Pipeline`; estimator threaded through `fit_pipeline`, `predict`, `fit_conformal`, `bootstrap_confidence_intervals` |
+| `prepare_split` | `core.features` | Single helper for split selection (returns raw `x`, `y`; Pipeline owns transforms) |
 | `visualization.theme` | `CHART_*`, `INTERVAL_COLOR_*` | Shared chart dimensions and palettes |
 
 ### Pipeline data flow
@@ -56,12 +56,15 @@ Forks should extend behaviour through these seams rather than editing call sites
 ```mermaid
 flowchart LR
   Settings --> generate_dataset
+  Settings --> regression_pipeline
+  random_forest_regressor --> regression_pipeline
   generate_dataset --> split
-  split --> fit_random_forest
-  fit_random_forest --> predict
+  split --> fit_pipeline
+  regression_pipeline --> fit_pipeline
+  fit_pipeline --> predict
   predict --> regression_metrics
-  fit_random_forest --> bootstrap_confidence_intervals
-  fit_random_forest --> fit_conformal
+  regression_pipeline --> bootstrap_confidence_intervals
+  regression_pipeline --> fit_conformal
   fit_conformal --> conformal_intervals
   bootstrap_confidence_intervals --> plot_intervals
   conformal_intervals --> plot_intervals

@@ -2,12 +2,12 @@ from typing import cast
 
 import pytest
 from pandera.typing import DataFrame
-from sklearn.ensemble import RandomForestRegressor
 from sklearn.model_selection import train_test_split
+from sklearn.pipeline import Pipeline
 
 from core import Settings, SplitKind, TrainingData, build_split_dataset
 from core.schemas import SplitDatasetBase
-from prediction import fit_random_forest, random_forest_regressor
+from prediction import fit_pipeline, random_forest_regressor, regression_pipeline
 from simulation import generate_dataset
 
 
@@ -88,10 +88,13 @@ def split_dataset(
 
 
 @pytest.fixture
-def unfitted_regressor(settings: Settings) -> RandomForestRegressor:
-    return random_forest_regressor(settings)
+def unfitted_pipeline(settings: Settings) -> Pipeline:
+    return regression_pipeline(random_forest_regressor(settings), settings)
 
 
 @pytest.fixture
-def fitted_model(split_dataset: DataFrame[SplitDatasetBase], settings: Settings) -> RandomForestRegressor:
-    return fit_random_forest(split_dataset, random_forest_regressor(settings), settings)
+def fitted_pipeline(
+    split_dataset: DataFrame[SplitDatasetBase],
+    unfitted_pipeline: Pipeline,
+) -> Pipeline:
+    return fit_pipeline(split_dataset, unfitted_pipeline)

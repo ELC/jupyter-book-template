@@ -1,39 +1,38 @@
 import pandas as pd
 from mapie.regression import SplitConformalRegressor
 from pandera.typing import DataFrame
-from sklearn.base import RegressorMixin, clone
+from sklearn.base import clone
+from sklearn.pipeline import Pipeline
 
-from core.features import expand_features, prepare_split
+from core.features import prepare_split
 from core.schemas import PredictionInterval, SplitDatasetBase, SplitKind
 from core.settings import Settings
 
 
 def fit_conformal(
     data: DataFrame[SplitDatasetBase],
-    model: RegressorMixin,
+    pipeline: Pipeline,
     settings: Settings,
 ) -> SplitConformalRegressor:
-    estimator = clone(model)
-    transformer = expand_features(settings)
-    train = prepare_split(data, SplitKind.TRAINING, settings, transformer=transformer)
-    calib = prepare_split(data, SplitKind.CALIBRATION, settings, transformer=transformer)
+    estimator = clone(pipeline)
+    train = prepare_split(data, SplitKind.TRAINING)
+    calib = prepare_split(data, SplitKind.CALIBRATION)
     conformal = SplitConformalRegressor(
         estimator=estimator,
         confidence_level=settings.confidence_level,
         prefit=False,
     )
-    conformal.fit(train.features, train.y)
-    conformal.conformalize(calib.features, calib.y)
+    conformal.fit(train.x, train.y)
+    conformal.conformalize(calib.x, calib.y)
     return conformal
 
 
 def conformal_intervals(
     model: SplitConformalRegressor,
     data: DataFrame[SplitDatasetBase],
-    settings: Settings,
 ) -> DataFrame[PredictionInterval]:
-    eval_split = prepare_split(data, SplitKind.EVALUATION, settings)
-    _, intervals = model.predict_interval(eval_split.features)
+    eval_split = prepare_split(data, SplitKind.EVALUATION)
+    _, intervals = model.predict_interval(eval_split.x)
     lower, upper = intervals[..., 0].T
     return pd.DataFrame(
         {

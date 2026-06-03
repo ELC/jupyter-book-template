@@ -2,10 +2,14 @@ import pandas as pd
 from pandera.typing import DataFrame
 from sklearn.base import RegressorMixin, clone
 from sklearn.ensemble import RandomForestRegressor
+from sklearn.pipeline import Pipeline
 
-from core.features import prepare_split
+from core.features import expand_features, prepare_split
 from core.schemas import Predictions, PredictionsWithGroundTruth, SplitDatasetBase, SplitKind
 from core.settings import Settings
+
+FEATURES_STEP = "features"
+REGRESSOR_STEP = "regressor"
 
 
 def random_forest_regressor(settings: Settings) -> RandomForestRegressor:
@@ -17,26 +21,33 @@ def random_forest_regressor(settings: Settings) -> RandomForestRegressor:
     )
 
 
-def fit_random_forest(
+def regression_pipeline(regressor: RegressorMixin, settings: Settings) -> Pipeline:
+    return Pipeline(
+        steps=[
+            (FEATURES_STEP, expand_features(settings)),
+            (REGRESSOR_STEP, regressor),
+        ],
+    )
+
+
+def fit_pipeline(
     data: DataFrame[SplitDatasetBase],
-    model: RegressorMixin,
-    settings: Settings,
-) -> RandomForestRegressor:
-    fitted = clone(model)
-    train = prepare_split(data, SplitKind.TRAINING, settings)
-    fitted.fit(train.features, train.y)
+    pipeline: Pipeline,
+) -> Pipeline:
+    fitted = clone(pipeline)
+    train = prepare_split(data, SplitKind.TRAINING)
+    fitted.fit(train.x, train.y)
     return fitted
 
 
 def predict(
-    model: RegressorMixin,
+    pipeline: Pipeline,
     data: DataFrame[SplitDatasetBase],
-    settings: Settings,
     *,
     split: SplitKind = SplitKind.EVALUATION,
 ) -> DataFrame[PredictionsWithGroundTruth]:
-    split_data = prepare_split(data, split, settings)
-    y_pred = model.predict(split_data.features)
+    split_data = prepare_split(data, split)
+    y_pred = pipeline.predict(split_data.x)
     y_true = split_data.y.to_numpy()
     return pd.DataFrame(
         {

@@ -4,9 +4,7 @@ import numpy as np
 import pandas as pd
 from pandera.typing import DataFrame
 from sklearn.base import TransformerMixin
-from sklearn.exceptions import NotFittedError
 from sklearn.preprocessing import PolynomialFeatures
-from sklearn.utils.validation import check_is_fitted
 
 from core.composite_features import CompositeFeatures
 from core.fourier_features import FourierFeatures
@@ -18,7 +16,6 @@ from core.splits import select_split
 class PreparedSplit(NamedTuple):
     x: np.ndarray
     y: pd.Series
-    features: np.ndarray
 
 
 def _polynomial_transformer(settings: Settings) -> PolynomialFeatures | None:
@@ -60,23 +57,9 @@ def expand_features(settings: Settings) -> CompositeFeatures:
 def prepare_split(
     data: DataFrame[SplitDatasetBase],
     split: SplitKind,
-    settings: Settings,
-    *,
-    transformer: TransformerMixin | None = None,
 ) -> PreparedSplit:
     subset = select_split(data, split)
-    x_raw = subset[TrainingData.x].to_numpy()
-    y = subset[TrainingData.y]
-
-    if transformer is None:
-        features = expand_features(settings).fit_transform(x_raw)
-        return PreparedSplit(x_raw, y, features)
-
-    try:
-        check_is_fitted(transformer)
-    except NotFittedError:
-        features = transformer.fit_transform(x_raw)
-        return PreparedSplit(x_raw, y, features)
-
-    features = transformer.transform(x_raw)
-    return PreparedSplit(x_raw, y, features)
+    return PreparedSplit(
+        x=subset[TrainingData.x].to_numpy(),
+        y=subset[TrainingData.y],
+    )

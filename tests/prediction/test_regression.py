@@ -1,10 +1,18 @@
 from pandera.typing import DataFrame
-from sklearn.ensemble import RandomForestRegressor
+from sklearn.linear_model import LinearRegression
+from sklearn.pipeline import Pipeline
 
-from core import Predictions, PredictionsWithGroundTruth, Settings, SplitKind, select_split
+from core import CompositeFeatures, Predictions, PredictionsWithGroundTruth, Settings, SplitKind, select_split
 from core.features import expand_features
 from core.schemas import SplitDatasetBase, TrainingData
-from prediction import fit_random_forest, predict, random_forest_regressor
+from prediction import (
+    FEATURES_STEP,
+    REGRESSOR_STEP,
+    fit_pipeline,
+    predict,
+    random_forest_regressor,
+    regression_pipeline,
+)
 
 
 def test_random_forest_regressor_uses_settings(settings: Settings) -> None:
@@ -15,24 +23,36 @@ def test_random_forest_regressor_uses_settings(settings: Settings) -> None:
     assert model.n_jobs == 1
 
 
-def test_fit_random_forest_fits_training_features(
+def test_regression_pipeline_uses_supplied_regressor(settings: Settings) -> None:
+    regressor = random_forest_regressor(settings)
+    pipeline = regression_pipeline(regressor, settings)
+    assert pipeline.named_steps[REGRESSOR_STEP] is regressor
+    assert isinstance(pipeline.named_steps[FEATURES_STEP], CompositeFeatures)
+
+
+def test_regression_pipeline_accepts_alternative_regressor(settings: Settings) -> None:
+    regressor = LinearRegression()
+    pipeline = regression_pipeline(regressor, settings)
+    assert pipeline.named_steps[REGRESSOR_STEP] is regressor
+
+
+def test_fit_pipeline_fits_training_features(
     split_dataset: DataFrame[SplitDatasetBase],
     settings: Settings,
-    unfitted_regressor: RandomForestRegressor,
+    unfitted_pipeline: Pipeline,
 ) -> None:
-    fitted = fit_random_forest(split_dataset, unfitted_regressor, settings)
+    fitted = fit_pipeline(split_dataset, unfitted_pipeline)
     train = select_split(split_dataset, SplitKind.TRAINING)
     train_features = expand_features(settings).fit_transform(train[TrainingData.x].to_numpy())
-    assert fitted.n_features_in_ == train_features.shape[1]
+    assert fitted.named_steps[REGRESSOR_STEP].n_features_in_ == train_features.shape[1]
 
 
 def test_predict_returns_subset_for_selected_split(
     split_dataset: DataFrame[SplitDatasetBase],
-    settings: Settings,
-    fitted_model: RandomForestRegressor,
+    fitted_pipeline: Pipeline,
     selected_split_kind: SplitKind,
 ) -> None:
-    predictions = predict(fitted_model, split_dataset, settings, split=selected_split_kind)
+    predictions = predict(fitted_pipeline, split_dataset, split=selected_split_kind)
     expected = select_split(split_dataset, selected_split_kind)
     assert len(predictions) == len(expected)
     assert PredictionsWithGroundTruth.y_true in predictions.columns

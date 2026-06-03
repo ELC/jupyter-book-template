@@ -5,9 +5,9 @@ from sklearn.exceptions import NotFittedError
 from sklearn.preprocessing import PolynomialFeatures
 from sklearn.utils.validation import check_is_fitted
 
-from core import CompositeFeatures, FourierFeatures, Settings, SplitKind, expand_features
+from core import CompositeFeatures, FourierFeatures, Settings, SplitKind, expand_features, select_split
 from core.features import prepare_split
-from core.schemas import SplitDatasetBase
+from core.schemas import SplitDatasetBase, TrainingData
 
 
 def test_expand_features_transform_requires_fit() -> None:
@@ -24,24 +24,13 @@ def test_expand_features_raw_x_only() -> None:
     np.testing.assert_allclose(transformer.transform(x), fitted)
 
 
-def test_prepare_split_reuses_fitted_transformer(
+def test_prepare_split_returns_raw_x_and_y(
     split_dataset: DataFrame[SplitDatasetBase],
-    settings: Settings,
 ) -> None:
-    transformer = expand_features(settings)
-    train = prepare_split(
-        split_dataset,
-        SplitKind.TRAINING,
-        settings,
-        transformer=transformer,
-    )
-    eval_split = prepare_split(
-        split_dataset,
-        SplitKind.EVALUATION,
-        settings,
-        transformer=transformer,
-    )
-    assert train.features.shape[1] == eval_split.features.shape[1]
+    prepared = prepare_split(split_dataset, SplitKind.TRAINING)
+    expected = select_split(split_dataset, SplitKind.TRAINING)
+    np.testing.assert_allclose(prepared.x, expected[TrainingData.x].to_numpy())
+    assert prepared.y.tolist() == expected[TrainingData.y].tolist()
 
 
 def test_expand_features_reuses_polynomial_state() -> None:
@@ -130,6 +119,13 @@ def test_composite_features_hstacks_polynomial_and_fourier() -> None:
     np.testing.assert_allclose(features[:, 1], x**2)
     np.testing.assert_allclose(features[:, 2], np.sin(settings.seasonality_frequency * x))
     np.testing.assert_allclose(features[:, 3], np.cos(settings.seasonality_frequency * x))
+
+
+def test_composite_features_is_fitted_reports_state_per_transformer() -> None:
+    transformer = CompositeFeatures(transformers=[FourierFeatures(n_terms=1, frequency=0.5)])
+    assert transformer.__sklearn_is_fitted__() is False
+    transformer.fit(np.array([1.0, 2.0]))
+    assert transformer.__sklearn_is_fitted__() is True
 
 
 def test_composite_features_fit_then_transform() -> None:

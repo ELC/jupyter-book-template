@@ -1,7 +1,7 @@
 import pytest
 from mapie.regression import SplitConformalRegressor
 from pandera.typing import DataFrame
-from sklearn.ensemble import RandomForestRegressor
+from sklearn.pipeline import Pipeline
 
 from analysis import bootstrap_confidence_intervals
 from core import ConfidenceInterval, PredictionInterval, PredictionsWithGroundTruth, Settings
@@ -11,11 +11,10 @@ from prediction import conformal_intervals, fit_conformal, predict
 
 @pytest.fixture
 def predictions(
-    fitted_model: RandomForestRegressor,
+    fitted_pipeline: Pipeline,
     split_dataset: DataFrame[SplitDatasetBase],
-    settings: Settings,
 ) -> DataFrame[PredictionsWithGroundTruth]:
-    return predict(fitted_model, split_dataset, settings)
+    return predict(fitted_pipeline, split_dataset)
 
 
 @pytest.fixture
@@ -30,26 +29,25 @@ def custom_regression_metrics_settings() -> Settings:
 
 @pytest.fixture
 def bootstrap_confidence(
-    unfitted_regressor: RandomForestRegressor,
+    unfitted_pipeline: Pipeline,
     split_dataset: DataFrame[SplitDatasetBase],
     settings: Settings,
 ) -> DataFrame[ConfidenceInterval]:
-    return bootstrap_confidence_intervals(unfitted_regressor, split_dataset, settings)
+    return bootstrap_confidence_intervals(unfitted_pipeline, split_dataset, settings)
 
 
 @pytest.fixture
 def conformal_model(
     split_dataset: DataFrame[SplitDatasetBase],
     settings: Settings,
-    unfitted_regressor: RandomForestRegressor,
+    unfitted_pipeline: Pipeline,
 ) -> SplitConformalRegressor:
-    return fit_conformal(split_dataset, unfitted_regressor, settings)
+    return fit_conformal(split_dataset, unfitted_pipeline, settings)
 
 
 @pytest.fixture
 def prediction_intervals(
     conformal_model: SplitConformalRegressor,
     split_dataset: DataFrame[SplitDatasetBase],
-    settings: Settings,
 ) -> DataFrame[PredictionInterval]:
-    return conformal_intervals(conformal_model, split_dataset, settings)
+    return conformal_intervals(conformal_model, split_dataset)
