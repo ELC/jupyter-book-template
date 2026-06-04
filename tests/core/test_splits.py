@@ -4,30 +4,49 @@ from core import SplitKind, TrainingData, build_split_dataset, select_split
 from core.schemas import SplitDatasetBase
 
 
-def test_build_split_dataset_assigns_splits(
-    train_fold: DataFrame[TrainingData],
-    calibration_fold: DataFrame[TrainingData],
-    evaluation_fold: DataFrame[TrainingData],
+def test_build_split_dataset_partitions_into_three_folds(
+    dataset: DataFrame[TrainingData],
 ) -> None:
-    dataset = build_split_dataset(train_fold, calibration_fold, evaluation_fold)
-    assert len(dataset) == len(train_fold) + len(calibration_fold) + len(evaluation_fold)
-    assert dataset[SplitDatasetBase.split].tolist() == (
-        [SplitKind.TRAINING.value] * len(train_fold)
-        + [SplitKind.CALIBRATION.value] * len(calibration_fold)
-        + [SplitKind.EVALUATION.value] * len(evaluation_fold)
+    split = build_split_dataset(dataset)
+    assert len(split) == len(dataset)
+    counts = split[SplitDatasetBase.split].value_counts()
+    assert counts[SplitKind.TRAINING.value] > 0
+    assert counts[SplitKind.CALIBRATION.value] > 0
+    assert counts[SplitKind.EVALUATION.value] > 0
+    assert counts[SplitKind.TRAINING.value] + counts[SplitKind.CALIBRATION.value] + counts[
+        SplitKind.EVALUATION.value
+    ] == len(dataset)
+
+
+def test_build_split_dataset_honors_proportions(
+    dataset: DataFrame[TrainingData],
+) -> None:
+    split = build_split_dataset(
+        dataset,
+        train_size=0.6,
+        conformalize_size=0.2,
+        test_size=0.2,
     )
-    assert select_split(dataset, SplitKind.TRAINING).equals(train_fold.reset_index(drop=True))
-    assert select_split(dataset, SplitKind.CALIBRATION).equals(calibration_fold.reset_index(drop=True))
-    assert select_split(dataset, SplitKind.EVALUATION).equals(evaluation_fold.reset_index(drop=True))
+    counts = split[SplitDatasetBase.split].value_counts()
+    assert counts[SplitKind.TRAINING.value] == int(len(dataset) * 0.6)
+    assert counts[SplitKind.CALIBRATION.value] == int(len(dataset) * 0.2)
+    assert counts[SplitKind.EVALUATION.value] == int(len(dataset) * 0.2)
+
+
+def test_build_split_dataset_is_deterministic(
+    dataset: DataFrame[TrainingData],
+) -> None:
+    first = build_split_dataset(dataset, random_state=42)
+    second = build_split_dataset(dataset, random_state=42)
+    assert first.equals(second)
 
 
 def test_select_split_returns_training_data_subset(
-    train_fold: DataFrame[TrainingData],
-    calibration_fold: DataFrame[TrainingData],
-    evaluation_fold: DataFrame[TrainingData],
+    dataset: DataFrame[TrainingData],
     selected_split_kind: SplitKind,
-    expected_fold: DataFrame[TrainingData],
 ) -> None:
-    dataset = build_split_dataset(train_fold, calibration_fold, evaluation_fold)
-    selected = select_split(dataset, selected_split_kind)
-    assert selected.equals(expected_fold.reset_index(drop=True))
+    split = build_split_dataset(dataset)
+    selected = select_split(split, selected_split_kind)
+    expected_count = (split[SplitDatasetBase.split] == selected_split_kind.value).sum()
+    assert len(selected) == expected_count
+    assert list(selected.columns) == [TrainingData.x, TrainingData.y]

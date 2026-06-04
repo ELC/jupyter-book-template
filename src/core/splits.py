@@ -1,4 +1,5 @@
 import pandas as pd
+from mapie.utils import train_conformalize_test_split
 from pandera.typing import DataFrame
 
 from core.schemas import (
@@ -12,14 +13,25 @@ from core.schemas import (
 
 
 def build_split_dataset(
-    train: DataFrame[TrainingData],
-    calibration: DataFrame[TrainingData],
-    evaluation: DataFrame[TrainingData],
+    data: DataFrame[TrainingData],
+    *,
+    train_size: float = 0.7,
+    conformalize_size: float = 0.15,
+    test_size: float = 0.15,
+    random_state: int = 0,
 ) -> DataFrame[SplitDatasetBase]:
+    train, calibration, evaluation, *_ = train_conformalize_test_split(
+        data,
+        data[TrainingData.y],
+        train_size=train_size,
+        conformalize_size=conformalize_size,
+        test_size=test_size,
+        random_state=random_state,
+    )
     parts: list[pd.DataFrame] = [
-        train.pipe(DataFrame[TrainingSplit]),
-        calibration.pipe(DataFrame[CalibrationSplit]),
-        evaluation.pipe(DataFrame[EvaluationSplit]),
+        TrainingData.validate(train).pipe(DataFrame[TrainingSplit]),
+        TrainingData.validate(calibration).pipe(DataFrame[CalibrationSplit]),
+        TrainingData.validate(evaluation).pipe(DataFrame[EvaluationSplit]),
     ]
     return pd.concat(parts, ignore_index=True).pipe(DataFrame[SplitDatasetBase])
 

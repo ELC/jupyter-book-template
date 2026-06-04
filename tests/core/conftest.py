@@ -2,9 +2,8 @@ from typing import cast
 
 import numpy as np
 import pytest
-from pandera.typing import DataFrame
 
-from core import Settings, SplitKind, TrainingData
+from core import Settings
 
 
 @pytest.fixture(
@@ -75,18 +74,3 @@ def fourier_expand_features_x() -> np.ndarray:
 @pytest.fixture
 def polynomial_and_fourier_expand_features_settings() -> Settings:
     return Settings(polynomial_degree=3, fourier_terms=2, seasonality_frequency=0.5)
-
-
-@pytest.fixture
-def expected_fold(
-    selected_split_kind: SplitKind,
-    train_fold: DataFrame[TrainingData],
-    calibration_fold: DataFrame[TrainingData],
-    evaluation_fold: DataFrame[TrainingData],
-) -> DataFrame[TrainingData]:
-    folds = {
-        SplitKind.TRAINING: train_fold,
-        SplitKind.CALIBRATION: calibration_fold,
-        SplitKind.EVALUATION: evaluation_fold,
-    }
-    return folds[selected_split_kind]

@@ -2,10 +2,9 @@ from typing import cast
 
 import pytest
 from pandera.typing import DataFrame
-from sklearn.model_selection import train_test_split
 from sklearn.pipeline import Pipeline
 
-from core import Settings, SplitKind, TrainingData, build_split_dataset
+from core import Settings, SplitKind, TrainingData, build_split_dataset, select_split
 from core.schemas import SplitDatasetBase
 from prediction import fit_pipeline, random_forest_regressor, regression_pipeline
 from simulation import generate_dataset
@@ -29,62 +28,23 @@ def dataset(settings: Settings) -> DataFrame[TrainingData]:
 
 
 @pytest.fixture
-def train_remainder_split(
-    dataset: DataFrame[TrainingData],
-) -> tuple[DataFrame[TrainingData], DataFrame[TrainingData]]:
-    train, remainder = train_test_split(dataset, test_size=0.4, random_state=0)
-    return (
-        train.pipe(DataFrame[TrainingData]),
-        remainder.pipe(DataFrame[TrainingData]),
-    )
+def split_dataset(dataset: DataFrame[TrainingData]) -> DataFrame[SplitDatasetBase]:
+    return build_split_dataset(dataset)
 
 
 @pytest.fixture
-def train_fold(
-    train_remainder_split: tuple[DataFrame[TrainingData], DataFrame[TrainingData]],
-) -> DataFrame[TrainingData]:
-    return train_remainder_split[0]
+def train_fold(split_dataset: DataFrame[SplitDatasetBase]) -> DataFrame[TrainingData]:
+    return select_split(split_dataset, SplitKind.TRAINING)
 
 
 @pytest.fixture
-def remainder_fold(
-    train_remainder_split: tuple[DataFrame[TrainingData], DataFrame[TrainingData]],
-) -> DataFrame[TrainingData]:
-    return train_remainder_split[1]
+def calibration_fold(split_dataset: DataFrame[SplitDatasetBase]) -> DataFrame[TrainingData]:
+    return select_split(split_dataset, SplitKind.CALIBRATION)
 
 
 @pytest.fixture
-def calibration_evaluation_split(
-    remainder_fold: DataFrame[TrainingData],
-) -> tuple[DataFrame[TrainingData], DataFrame[TrainingData]]:
-    calibration, evaluation = train_test_split(remainder_fold, test_size=0.5, random_state=0)
-    return (
-        calibration.pipe(DataFrame[TrainingData]),
-        evaluation.pipe(DataFrame[TrainingData]),
-    )
-
-
-@pytest.fixture
-def calibration_fold(
-    calibration_evaluation_split: tuple[DataFrame[TrainingData], DataFrame[TrainingData]],
-) -> DataFrame[TrainingData]:
-    return calibration_evaluation_split[0]
-
-
-@pytest.fixture
-def evaluation_fold(
-    calibration_evaluation_split: tuple[DataFrame[TrainingData], DataFrame[TrainingData]],
-) -> DataFrame[TrainingData]:
-    return calibration_evaluation_split[1]
-
-
-@pytest.fixture
-def split_dataset(
-    train_fold: DataFrame[TrainingData],
-    calibration_fold: DataFrame[TrainingData],
-    evaluation_fold: DataFrame[TrainingData],
-) -> DataFrame[SplitDatasetBase]:
-    return build_split_dataset(train_fold, calibration_fold, evaluation_fold)
+def evaluation_fold(split_dataset: DataFrame[SplitDatasetBase]) -> DataFrame[TrainingData]:
+    return select_split(split_dataset, SplitKind.EVALUATION)
 
 
 @pytest.fixture
