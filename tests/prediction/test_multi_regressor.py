@@ -48,3 +48,13 @@ def test_repr_lists_each_named_estimator(
     text = repr(multi_regressor)
     for name, _ in multi_estimator_pairs:
         assert name in text
+
+
+def test_sk_visual_block_wraps_named_estimators(
+    multi_regressor: MultiRegressor,
+    multi_estimator_pairs: list[tuple[str, object]],
+) -> None:
+    block = multi_regressor._sk_visual_block_()
+    assert block.kind == "parallel"
+    assert block.names == [name for name, _ in multi_estimator_pairs]
+    assert block.estimators == [estimator for _, estimator in multi_estimator_pairs]
