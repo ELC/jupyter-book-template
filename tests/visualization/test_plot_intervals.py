@@ -18,27 +18,33 @@ from visualization import plot_intervals
 
 
 def _two_model_predictions() -> DataFrame[PredictionsByModel]:
-    rows = []
+    rows: list[dict[str, float | str]] = []
     for model in (ModelKind.RANDOM_FOREST, ModelKind.SVM):
-        rows.extend({
-                    PredictionsByModel.x: x,
-                    PredictionsByModel.y_pred: x * 0.5,
-                    PredictionsByModel.y_true: x,
-                    PredictionsByModel.model: model.value,
-                } for x in (-1.0, 0.0, 1.0))
+        rows.extend(
+            {
+                PredictionsByModel.x: x,
+                PredictionsByModel.y_pred: x * 0.5,
+                PredictionsByModel.y_true: x,
+                PredictionsByModel.model: model.value,
+            }
+            for x in (-1.0, 0.0, 1.0)
+        )
     return pd.DataFrame(rows).pipe(DataFrame[PredictionsByModel])
 
 
 def _two_model_intervals(kind: IntervalKind) -> pd.DataFrame:
-    rows = []
+    rows: list[dict[str, float | str]] = []
     for model in (ModelKind.RANDOM_FOREST, ModelKind.SVM):
-        rows.extend({
-                    "x": x,
-                    "lower": x - 0.5,
-                    "upper": x + 0.5,
-                    "kind": kind.value,
-                    "model": model.value,
-                } for x in (-1.0, 0.0, 1.0))
+        rows.extend(
+            {
+                "x": x,
+                "lower": x - 0.5,
+                "upper": x + 0.5,
+                "kind": kind.value,
+                "model": model.value,
+            }
+            for x in (-1.0, 0.0, 1.0)
+        )
     return pd.DataFrame(rows)
 
 

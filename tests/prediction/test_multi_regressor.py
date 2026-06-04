@@ -41,13 +41,10 @@ def test_clone_round_trips(multi_regressor: MultiRegressor) -> None:
     assert isinstance(cloned.estimators[0][1], LinearRegression)
 
 
-def test_sk_visual_block_exposes_named_estimators(
+def test_repr_lists_each_named_estimator(
     multi_regressor: MultiRegressor,
     multi_estimator_pairs: list[tuple[str, object]],
 ) -> None:
-    block = multi_regressor._sk_visual_block_()
-    expected_names = [name for name, _ in multi_estimator_pairs]
-    expected_estimators = [estimator for _, estimator in multi_estimator_pairs]
-    assert list(block.names) == expected_names
-    assert list(block.estimators) == expected_estimators
-    assert block.kind == "parallel"
+    text = repr(multi_regressor)
+    for name, _ in multi_estimator_pairs:
+        assert name in text

@@ -1,4 +1,4 @@
-from collections.abc import Callable, Sequence
+from collections.abc import Callable
 from dataclasses import dataclass
 
 import numpy as np
@@ -39,9 +39,9 @@ def _mwi_score(y_true: np.ndarray, y_intervals: np.ndarray, settings: Settings) 
     return regression_mwi_score(y_true, y_intervals, settings.confidence_level)
 
 
-CONFIDENCE_INTERVAL_METRICS: Sequence[IntervalMetric] = (IntervalMetric(IntervalMetricKind.WIDTH, _width_score),)
-PREDICTION_INTERVAL_METRICS: Sequence[IntervalMetric] = (IntervalMetric(IntervalMetricKind.MWI, _mwi_score),)
-_INTERVAL_METRICS: dict[IntervalKind, Sequence[IntervalMetric]] = {
+CONFIDENCE_INTERVAL_METRICS: tuple[IntervalMetric, ...] = (IntervalMetric(IntervalMetricKind.WIDTH, _width_score),)
+PREDICTION_INTERVAL_METRICS: tuple[IntervalMetric, ...] = (IntervalMetric(IntervalMetricKind.MWI, _mwi_score),)
+_INTERVAL_METRICS: dict[IntervalKind, tuple[IntervalMetric, ...]] = {
     IntervalKind.CONFIDENCE: CONFIDENCE_INTERVAL_METRICS,
     IntervalKind.PREDICTION: CONFIDENCE_INTERVAL_METRICS + PREDICTION_INTERVAL_METRICS,
 }

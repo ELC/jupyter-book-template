@@ -24,9 +24,7 @@ class MultiRegressor(BaseEstimator, RegressorMixin, TransformerMixin):
         self.estimators_ = []
 
     def fit(self, x: np.ndarray, y: np.ndarray) -> Self:
-        self.named_estimators_ = {
-            name: clone(estimator).fit(x, y) for name, estimator in self.estimators
-        }
+        self.named_estimators_ = {name: clone(estimator).fit(x, y) for name, estimator in self.estimators}
         self.estimators_ = list(self.named_estimators_.values())
         return self
 

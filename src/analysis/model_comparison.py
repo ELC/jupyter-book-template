@@ -39,12 +39,47 @@ def _tag(frame: pd.DataFrame, name: str) -> pd.DataFrame:
     return frame.assign(**{MODEL_COLUMN: name})
 
 
+def _sort_key(series: pd.Series, ranks: dict[str, dict[str, int]]) -> pd.Series:
+    column = str(series.name)
+    return series.map(ranks[column])
+
+
 def _sorted_by(frame: pd.DataFrame, orders: dict[str, list[str]]) -> pd.DataFrame:
     ranks = {column: {value: index for index, value in enumerate(order)} for column, order in orders.items()}
     return frame.sort_values(
         by=list(orders),
-        key=lambda series: series.map(ranks[series.name]),
+        key=lambda series: _sort_key(series, ranks),
     ).reset_index(drop=True)
+
+
+@dataclass(frozen=True, slots=True)
+class _PerModelFrames:
+    predictions: pd.DataFrame
+    confidence: pd.DataFrame
+    prediction: pd.DataFrame
+    regression_metrics: pd.DataFrame
+    confidence_metrics: pd.DataFrame
+    prediction_metrics: pd.DataFrame
+
+
+def _score_model(
+    name: str,
+    pipeline: object,
+    data: DataFrame[SplitDatasetBase],
+    settings: Settings,
+) -> _PerModelFrames:
+    fitted = fit_pipeline(data, pipeline)
+    preds = predict(fitted, data)
+    ci = bootstrap_confidence_intervals(pipeline, data, settings)
+    pi = conformal_intervals(fit_conformal(data, pipeline, settings), data)
+    return _PerModelFrames(
+        predictions=_tag(preds, name),
+        confidence=_tag(ci, name),
+        prediction=_tag(pi, name),
+        regression_metrics=_tag(regression_metrics(preds, settings=settings), name),
+        confidence_metrics=_tag(interval_metrics(ci, preds, settings=settings), name),
+        prediction_metrics=_tag(interval_metrics(pi, preds, settings=settings), name),
+    )
 
 
 def compare_models(
@@ -52,25 +87,7 @@ def compare_models(
     regressors: MultiRegressor,
     settings: Settings,
 ) -> ModelComparisonReport:
-    predictions_parts: list[pd.DataFrame] = []
-    confidence_parts: list[pd.DataFrame] = []
-    prediction_parts: list[pd.DataFrame] = []
-    regression_metrics_parts: list[pd.DataFrame] = []
-    confidence_metrics_parts: list[pd.DataFrame] = []
-    prediction_metrics_parts: list[pd.DataFrame] = []
-
-    for name, pipeline in regressors.estimators:
-        fitted = fit_pipeline(data, pipeline)
-        preds = predict(fitted, data)
-        ci = bootstrap_confidence_intervals(pipeline, data, settings)
-        pi = conformal_intervals(fit_conformal(data, pipeline, settings), data)
-        predictions_parts.append(_tag(preds, name))
-        confidence_parts.append(_tag(ci, name))
-        prediction_parts.append(_tag(pi, name))
-        regression_metrics_parts.append(_tag(regression_metrics(preds, settings=settings), name))
-        confidence_metrics_parts.append(_tag(interval_metrics(ci, preds, settings=settings), name))
-        prediction_metrics_parts.append(_tag(interval_metrics(pi, preds, settings=settings), name))
-
+    per_model = [_score_model(name, pipeline, data, settings) for name, pipeline in regressors.estimators]
     model_order = [name for name, _ in regressors.estimators]
     regression_orders = {
         MetricReportByModel.metric: [m.value for m in RegressionMetricKind],
@@ -83,25 +100,25 @@ def compare_models(
     }
 
     return ModelComparisonReport(
-        predictions=pd.concat(predictions_parts, ignore_index=True).pipe(
+        predictions=pd.concat([frames.predictions for frames in per_model], ignore_index=True).pipe(
             DataFrame[PredictionsByModel],
         ),
-        confidence=pd.concat(confidence_parts, ignore_index=True).pipe(
+        confidence=pd.concat([frames.confidence for frames in per_model], ignore_index=True).pipe(
             DataFrame[ConfidenceIntervalByModel],
         ),
-        prediction=pd.concat(prediction_parts, ignore_index=True).pipe(
+        prediction=pd.concat([frames.prediction for frames in per_model], ignore_index=True).pipe(
             DataFrame[PredictionIntervalByModel],
         ),
         regression_metrics=_sorted_by(
-            pd.concat(regression_metrics_parts, ignore_index=True),
+            pd.concat([frames.regression_metrics for frames in per_model], ignore_index=True),
             regression_orders,
         ).pipe(DataFrame[MetricReportByModel]),
         confidence_metrics=_sorted_by(
-            pd.concat(confidence_metrics_parts, ignore_index=True),
+            pd.concat([frames.confidence_metrics for frames in per_model], ignore_index=True),
             interval_orders,
         ).pipe(DataFrame[IntervalMetricReportByModel]),
         prediction_metrics=_sorted_by(
-            pd.concat(prediction_metrics_parts, ignore_index=True),
+            pd.concat([frames.prediction_metrics for frames in per_model], ignore_index=True),
             interval_orders,
         ).pipe(DataFrame[IntervalMetricReportByModel]),
     )

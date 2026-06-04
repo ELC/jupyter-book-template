@@ -21,7 +21,7 @@ _INTERVAL_TICK_SIZE = 36
 
 def _regression_metric_layers(
     metrics: DataFrame[MetricReportByModel],
-) -> alt.LayerChart:
+) -> alt.LayerChart | alt.FacetChart:
     color = alt.Color(
         f"{MetricReportByModel.model}:N",
         legend=alt.Legend(title="Model"),

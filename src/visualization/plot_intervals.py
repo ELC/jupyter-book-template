@@ -73,7 +73,7 @@ def _model_panel(
     model: str,
     data: DataFrame[TrainingData],
     report: ModelComparisonReport,
-) -> alt.LayerChart:
+) -> alt.LayerChart | alt.FacetChart:
     model_predictions = report.predictions[report.predictions[PredictionsByModel.model] == model]
     model_confidence = report.confidence[report.confidence[ConfidenceIntervalByModel.model] == model]
     model_prediction = report.prediction[report.prediction[PredictionIntervalByModel.model] == model]

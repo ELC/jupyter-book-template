@@ -8,8 +8,9 @@ class FourierFeatures(BaseEstimator, TransformerMixin):
     def __init__(self, n_terms: int = 1, frequency: float = 0.5) -> None:
         self.n_terms = n_terms
         self.frequency = frequency
+        self.n_features_in_: int | None = None
 
-    def fit(self, x: np.ndarray, y: np.ndarray | None = None) -> Self:
+    def fit(self, x: np.ndarray, _y: np.ndarray | None = None) -> Self:
         self.n_features_in_ = x.shape[1]
         return self
 

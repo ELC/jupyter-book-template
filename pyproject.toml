@@ -38,7 +38,14 @@ dev = [
 ]
 
 [tool.uv.build-backend]
-module-name = ["core", "simulation", "analysis", "prediction", "visualization", "evaluation"]
+module-name = [
+  "core",
+  "simulation",
+  "analysis",
+  "prediction",
+  "visualization",
+  "evaluation"
+]
 
 #########################
 # Tasks
@@ -89,7 +96,14 @@ addopts = ["-vv", "--cov", "--cov-report=term-missing", "--cov-report=xml"]
 
 [tool.coverage.run]
 branch = true
-source_pkgs = ["core", "simulation", "analysis", "prediction", "visualization", "evaluation"]
+source_pkgs = [
+  "core",
+  "simulation",
+  "analysis",
+  "prediction",
+  "visualization",
+  "evaluation"
+]
 
 [tool.coverage.report]
 fail_under = 100
@@ -116,6 +130,8 @@ exclude_lines = [
 strict = true
 follow_imports = "normal"
 python_version = "3.13"
+mypy_path = "src"
+explicit_package_bases = true
 plugins = ["pandera.mypy"]
 disallow_any_unimported = true
 disallow_any_generics = true
@@ -151,9 +167,15 @@ module = [
   "visualization.*",
   "evaluation.*",
   "core.features",
+  "core.fourier_features",
   "simulation.generator",
 ]
-disable_error_code = ["no-any-unimported", "no-any-return", "valid-type", "misc"]
+disable_error_code = [
+  "no-any-unimported",
+  "no-any-return",
+  "valid-type",
+  "misc"
+]
 
 #########################
 # RUFF
@@ -170,10 +192,15 @@ extend-exclude = ["_build"]
 "src/**/*.py" = ["D"]
 "src/**/__init__.py" = []
 "tests/**" = ["D", "PLR2004", "B017", "RUF069"]
+"book/**/*.ipynb" = ["D", "B018"]
+"book/**/*_nbqa_*" = ["D", "B018"]
 
 [tool.ruff.lint]
 extend-select = ["ALL"]
 ignore = [
+  "D203",                # incompatible with D211 (no-blank-line-before-class)
+  "D213",                # incompatible with D212 (multi-line-summary-first-line)
+  "D104",                # inconsistent docstring quotes
   "CPY",                 # copyright notices
   "S101",                # assert usage
   "ISC001",              # implicit string concat
@@ -228,6 +255,8 @@ disable = [
   "too-many-arguments",
   "too-many-positional-arguments",
   "redefined-outer-name",           # pytest fixture parameter names shadow outer fixtures
+  "pointless-statement",            # notebook last-cell display (nbqa-pylint)
+  "expression-not-assigned",        # notebook last-cell display (nbqa-pylint)
 ]
 
 #########################

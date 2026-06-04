@@ -19,31 +19,37 @@ from visualization import plot_interval_metrics, plot_regression_metrics
 
 
 def _two_model_regression_metrics() -> DataFrame[MetricReportByModel]:
-    rows = []
+    rows: list[dict[str, float | str]] = []
     for model in (ModelKind.RANDOM_FOREST, ModelKind.SVM):
-        rows.extend({
-                    MetricReportByModel.metric: metric.value,
-                    MetricReportByModel.lower: 0.1,
-                    MetricReportByModel.upper: 0.5,
-                    MetricReportByModel.model: model.value,
-                } for metric in RegressionMetricKind)
+        rows.extend(
+            {
+                MetricReportByModel.metric: metric.value,
+                MetricReportByModel.lower: 0.1,
+                MetricReportByModel.upper: 0.5,
+                MetricReportByModel.model: model.value,
+            }
+            for metric in RegressionMetricKind
+        )
     return pd.DataFrame(rows).pipe(DataFrame[MetricReportByModel])
 
 
 def _two_model_interval_metrics(kind: IntervalKind) -> DataFrame[IntervalMetricReportByModel]:
-    rows = []
+    rows: list[dict[str, float | str]] = []
     metrics_for_kind = (
         (IntervalMetricKind.WIDTH,)
         if kind is IntervalKind.CONFIDENCE
         else (IntervalMetricKind.WIDTH, IntervalMetricKind.MWI)
     )
     for model in (ModelKind.RANDOM_FOREST, ModelKind.SVM):
-        rows.extend({
-                    IntervalMetricReportByModel.kind: kind.value,
-                    IntervalMetricReportByModel.metric: metric.value,
-                    IntervalMetricReportByModel.value: 1.5,
-                    IntervalMetricReportByModel.model: model.value,
-                } for metric in metrics_for_kind)
+        rows.extend(
+            {
+                IntervalMetricReportByModel.kind: kind.value,
+                IntervalMetricReportByModel.metric: metric.value,
+                IntervalMetricReportByModel.value: 1.5,
+                IntervalMetricReportByModel.model: model.value,
+            }
+            for metric in metrics_for_kind
+        )
     return pd.DataFrame(rows).pipe(DataFrame[IntervalMetricReportByModel])
 
 

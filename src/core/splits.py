@@ -16,7 +16,7 @@ def build_split_dataset(
     calibration: DataFrame[TrainingData],
     evaluation: DataFrame[TrainingData],
 ) -> DataFrame[SplitDatasetBase]:
-    parts = [
+    parts: list[pd.DataFrame] = [
         train.pipe(DataFrame[TrainingSplit]),
         calibration.pipe(DataFrame[CalibrationSplit]),
         evaluation.pipe(DataFrame[EvaluationSplit]),
