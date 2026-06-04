@@ -3,7 +3,7 @@ from mapie.regression import SplitConformalRegressor
 from pandera.typing import DataFrame
 from sklearn.pipeline import Pipeline
 
-from analysis import bootstrap_confidence_intervals
+from analysis import confidence_intervals
 from core import ConfidenceInterval, PredictionInterval, PredictionsWithGroundTruth, Settings
 from core.schemas import SplitDatasetBase
 from prediction import conformal_intervals, fit_conformal, predict
@@ -28,12 +28,12 @@ def custom_regression_metrics_settings() -> Settings:
 
 
 @pytest.fixture
-def bootstrap_confidence(
+def cv_confidence(
     unfitted_pipeline: Pipeline,
     split_dataset: DataFrame[SplitDatasetBase],
     settings: Settings,
 ) -> DataFrame[ConfidenceInterval]:
-    return bootstrap_confidence_intervals(unfitted_pipeline, split_dataset, settings)
+    return confidence_intervals(unfitted_pipeline, split_dataset, settings)
 
 
 @pytest.fixture

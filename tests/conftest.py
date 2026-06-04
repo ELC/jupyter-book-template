@@ -4,7 +4,7 @@ import pytest
 from pandera.typing import DataFrame
 from sklearn.pipeline import Pipeline
 
-from core import Settings, SplitKind, TrainingData, build_split_dataset, select_split
+from core import Settings, SplitKind, TrainingData, build_split_dataset, expand_features, select_split
 from core.schemas import SplitDatasetBase
 from prediction import fit_pipeline, random_forest_regressor, regression_pipeline
 from simulation import generate_dataset
@@ -49,7 +49,7 @@ def evaluation_fold(split_dataset: DataFrame[SplitDatasetBase]) -> DataFrame[Tra
 
 @pytest.fixture
 def unfitted_pipeline(settings: Settings) -> Pipeline:
-    return regression_pipeline(random_forest_regressor(settings), settings)
+    return regression_pipeline(random_forest_regressor(settings), expand_features(settings))
 
 
 @pytest.fixture

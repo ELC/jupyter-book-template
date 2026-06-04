@@ -3,18 +3,18 @@ from pandera.typing import DataFrame
 from sklearn.base import BaseEstimator, clone
 from sklearn.pipeline import Pipeline
 
-from core.features import expand_features, prepare_split
+from core.features import prepare_split
 from core.schemas import Predictions, PredictionsWithGroundTruth, SplitDatasetBase, SplitKind
-from core.settings import Settings
 
 FEATURES_STEP = "features"
 REGRESSOR_STEP = "regressor"
+ENSEMBLE_STEP = "ensemble"
 
 
-def regression_pipeline(regressor: BaseEstimator, settings: Settings) -> Pipeline:
+def regression_pipeline(regressor: BaseEstimator, features: BaseEstimator) -> Pipeline:
     return Pipeline(
         steps=[
-            (FEATURES_STEP, expand_features(settings)),
+            (FEATURES_STEP, features),
             (REGRESSOR_STEP, regressor),
         ],
     )

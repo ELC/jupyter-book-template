@@ -18,6 +18,10 @@ def _seasonality(x: np.ndarray, settings: Settings) -> np.ndarray:
     return settings.seasonality_amplitude * np.cos(settings.seasonality_frequency * x)
 
 
+def mean_function(x: np.ndarray, settings: Settings) -> np.ndarray:
+    return _signal(x) + _trend(x, settings) + _seasonality(x, settings)
+
+
 def _heteroscedastic_noise(
     rng: np.random.Generator,
     x: np.ndarray,
@@ -32,9 +36,6 @@ def _heteroscedastic_noise(
 def generate_dataset(settings: Settings) -> DataFrame[TrainingData]:
     rng = np.random.default_rng(settings.seed)
     x = rng.uniform(settings.x_min, settings.x_max, size=settings.n_samples)
-    signal = _signal(x)
-    trend = _trend(x, settings)
-    seasonality = _seasonality(x, settings)
     noise = _heteroscedastic_noise(rng, x, settings)
-    y = signal + trend + seasonality + noise
+    y = mean_function(x, settings) + noise
     return pd.DataFrame({TrainingData.x: x, TrainingData.y: y}).pipe(DataFrame[TrainingData])

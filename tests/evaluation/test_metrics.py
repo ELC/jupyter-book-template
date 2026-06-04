@@ -47,15 +47,21 @@ def test_default_regression_metrics_are_regression_metric_instances() -> None:
         assert isinstance(metric, RegressionMetric)
 
 
-def test_interval_metrics_for_confidence_intervals_reports_width_only(
+def test_interval_metrics_for_confidence_intervals_reports_width_and_coverage(
     predictions: DataFrame[PredictionsWithGroundTruth],
-    bootstrap_confidence: DataFrame[ConfidenceInterval],
+    cv_confidence: DataFrame[ConfidenceInterval],
     settings: Settings,
 ) -> None:
-    report = interval_metrics(bootstrap_confidence, predictions, settings=settings)
-    assert report["metric"].tolist() == [IntervalMetricKind.WIDTH.value]
-    assert report["kind"].iloc[0] == IntervalKind.CONFIDENCE.value
-    assert report["value"].iloc[0] > 0.0
+    report = interval_metrics(cv_confidence, predictions, settings=settings)
+    assert set(report["metric"].tolist()) == {
+        IntervalMetricKind.WIDTH.value,
+        IntervalMetricKind.COVERAGE.value,
+    }
+    assert report["kind"].eq(IntervalKind.CONFIDENCE.value).all()
+    width = report.loc[report["metric"] == IntervalMetricKind.WIDTH.value, "value"].iloc[0]
+    coverage = report.loc[report["metric"] == IntervalMetricKind.COVERAGE.value, "value"].iloc[0]
+    assert width > 0.0
+    assert 0.0 <= coverage <= 1.0
 
 
 def test_interval_metrics_reports_mapie_metrics(
@@ -67,6 +73,12 @@ def test_interval_metrics_reports_mapie_metrics(
     assert set(report["metric"].tolist()) == {
         IntervalMetricKind.WIDTH.value,
         IntervalMetricKind.MWI.value,
+        IntervalMetricKind.COVERAGE.value,
     }
     assert report["kind"].eq(IntervalKind.PREDICTION.value).all()
-    assert (report["value"] > 0).all()
+    width = report.loc[report["metric"] == IntervalMetricKind.WIDTH.value, "value"].iloc[0]
+    mwi = report.loc[report["metric"] == IntervalMetricKind.MWI.value, "value"].iloc[0]
+    coverage = report.loc[report["metric"] == IntervalMetricKind.COVERAGE.value, "value"].iloc[0]
+    assert width > 0.0
+    assert mwi > 0.0
+    assert 0.0 <= coverage <= 1.0

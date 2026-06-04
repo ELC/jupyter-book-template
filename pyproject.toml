@@ -17,7 +17,6 @@ dependencies = [
   "scikit-learn>=1.5",
   "scipy>=1.14",
   "seaborn>=0.13.2",
-  "tqdm>=4.66",
   "vl-convert-python>=1.7",
 ]
 
@@ -149,7 +148,6 @@ module = [
   "seaborn.*",
   "mapie.*",
   "sklearn.*",
-  "tqdm.*",
 ]
 ignore_missing_imports = true
 

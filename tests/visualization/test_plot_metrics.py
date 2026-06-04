@@ -36,9 +36,9 @@ def _two_model_regression_metrics() -> DataFrame[MetricReportByModel]:
 def _two_model_interval_metrics(kind: IntervalKind) -> DataFrame[IntervalMetricReportByModel]:
     rows: list[dict[str, float | str]] = []
     metrics_for_kind = (
-        (IntervalMetricKind.WIDTH,)
+        (IntervalMetricKind.WIDTH, IntervalMetricKind.COVERAGE)
         if kind is IntervalKind.CONFIDENCE
-        else (IntervalMetricKind.WIDTH, IntervalMetricKind.MWI)
+        else (IntervalMetricKind.WIDTH, IntervalMetricKind.MWI, IntervalMetricKind.COVERAGE)
     )
     for model in (ModelKind.RANDOM_FOREST, ModelKind.SVM):
         rows.extend(

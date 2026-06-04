@@ -1,9 +1,11 @@
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 import pandas as pd
 from pandera.typing import DataFrame
+from sklearn.pipeline import Pipeline
 
-from analysis.bootstrap import bootstrap_confidence_intervals
+from analysis.cross_validation import confidence_intervals
 from core.schemas import (
     ConfidenceIntervalByModel,
     IntervalKind,
@@ -11,7 +13,9 @@ from core.schemas import (
     IntervalMetricReportByModel,
     MetricReportByModel,
     PredictionIntervalByModel,
+    Predictions,
     PredictionsByModel,
+    PredictionsWithGroundTruth,
     RegressionMetricKind,
     SplitDatasetBase,
 )
@@ -19,10 +23,15 @@ from core.settings import Settings
 from evaluation.interval_metrics import interval_metrics
 from evaluation.regression_metrics import regression_metrics
 from prediction.conformal import conformal_intervals, fit_conformal
-from prediction.multi_regressor import MultiRegressor
-from prediction.regression import fit_pipeline, predict
+from prediction.regression import ENSEMBLE_STEP, FEATURES_STEP, fit_pipeline, predict, regression_pipeline
+from simulation.generator import mean_function
+
+if TYPE_CHECKING:
+    from sklearn.base import BaseEstimator
+    from sklearn.ensemble import VotingRegressor
 
 MODEL_COLUMN = "model"
+MU_TRUE_COLUMN = "mu_true"
 
 
 @dataclass(frozen=True, slots=True)
@@ -64,31 +73,52 @@ class _PerModelFrames:
 
 def _score_model(
     name: str,
-    pipeline: object,
+    pipeline: Pipeline,
     data: DataFrame[SplitDatasetBase],
     settings: Settings,
 ) -> _PerModelFrames:
     fitted = fit_pipeline(data, pipeline)
     preds = predict(fitted, data)
-    ci = bootstrap_confidence_intervals(pipeline, data, settings)
+    ci = confidence_intervals(pipeline, data, settings)
     pi = conformal_intervals(fit_conformal(data, pipeline, settings), data)
+    preds_with_mu = preds.assign(
+        **{MU_TRUE_COLUMN: mean_function(preds[Predictions.x].to_numpy(), settings)},
+    )
     return _PerModelFrames(
         predictions=_tag(preds, name),
         confidence=_tag(ci, name),
         prediction=_tag(pi, name),
         regression_metrics=_tag(regression_metrics(preds, settings=settings), name),
-        confidence_metrics=_tag(interval_metrics(ci, preds, settings=settings), name),
-        prediction_metrics=_tag(interval_metrics(pi, preds, settings=settings), name),
+        confidence_metrics=_tag(
+            interval_metrics(ci, preds_with_mu, settings=settings, target_column=MU_TRUE_COLUMN),
+            name,
+        ),
+        prediction_metrics=_tag(
+            interval_metrics(
+                pi,
+                preds_with_mu,
+                settings=settings,
+                target_column=PredictionsWithGroundTruth.y_true,
+            ),
+            name,
+        ),
     )
+
+
+def _per_model_pipelines(regressors: Pipeline) -> list[tuple[str, Pipeline]]:
+    features: BaseEstimator = regressors.named_steps[FEATURES_STEP]
+    ensemble: VotingRegressor = regressors.named_steps[ENSEMBLE_STEP]
+    return [(name, regression_pipeline(estimator, features)) for name, estimator in ensemble.estimators]
 
 
 def compare_models(
     data: DataFrame[SplitDatasetBase],
-    regressors: MultiRegressor,
+    regressors: Pipeline,
     settings: Settings,
 ) -> ModelComparisonReport:
-    per_model = [_score_model(name, pipeline, data, settings) for name, pipeline in regressors.estimators]
-    model_order = [name for name, _ in regressors.estimators]
+    pairs = _per_model_pipelines(regressors)
+    per_model = [_score_model(name, pipeline, data, settings) for name, pipeline in pairs]
+    model_order = [name for name, _ in pairs]
     regression_orders = {
         MetricReportByModel.metric: [m.value for m in RegressionMetricKind],
         MODEL_COLUMN: model_order,

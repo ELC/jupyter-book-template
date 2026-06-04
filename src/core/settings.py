@@ -17,6 +17,8 @@ class Settings(BaseSettings):
     seasonality_amplitude: float = 10.0
     seasonality_frequency: float = 0.5
     n_resamples: int = Field(default=200, gt=0)
+    cv_n_splits: int = Field(default=10, gt=1)
+    cv_n_repeats: int = Field(default=5, gt=0)
     confidence_level: float = Field(default=0.95, gt=0, lt=1)
     n_estimators: int = Field(default=100, gt=0)
     max_depth: int = 5

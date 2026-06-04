@@ -23,6 +23,7 @@ class RegressionMetricKind(StrEnum):
 class IntervalMetricKind(StrEnum):
     WIDTH = auto()
     MWI = auto()
+    COVERAGE = auto()
 
 
 class SplitKind(StrEnum):

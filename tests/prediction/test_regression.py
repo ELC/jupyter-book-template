@@ -18,16 +18,25 @@ from prediction import (
 
 def test_regression_pipeline_uses_supplied_regressor(settings: Settings) -> None:
     regressor = random_forest_regressor(settings)
-    pipeline = regression_pipeline(regressor, settings)
+    features = expand_features(settings)
+    pipeline = regression_pipeline(regressor, features)
     assert pipeline.named_steps[REGRESSOR_STEP] is regressor
     features_step = pipeline.named_steps[FEATURES_STEP]
+    assert features_step is features
     assert isinstance(features_step, FeatureUnion | FunctionTransformer)
 
 
 def test_regression_pipeline_accepts_alternative_regressor(settings: Settings) -> None:
     regressor = LinearRegression()
-    pipeline = regression_pipeline(regressor, settings)
+    pipeline = regression_pipeline(regressor, expand_features(settings))
     assert pipeline.named_steps[REGRESSOR_STEP] is regressor
+
+
+def test_regression_pipeline_shares_features_across_regressors(settings: Settings) -> None:
+    features = expand_features(settings)
+    rf_pipeline = regression_pipeline(random_forest_regressor(settings), features)
+    lr_pipeline = regression_pipeline(LinearRegression(), features)
+    assert rf_pipeline.named_steps[FEATURES_STEP] is lr_pipeline.named_steps[FEATURES_STEP]
 
 
 def test_fit_pipeline_fits_training_features(

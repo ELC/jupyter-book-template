@@ -46,8 +46,10 @@ Forks should extend behaviour through these seams rather than editing call sites
 
 | Seam | Location | Purpose |
 |------|----------|---------|
-| `RegressorMixin` | `sklearn.base` | Swap sklearn estimators by passing them to `regression_pipeline(regressor, settings)` |
-| `regression_pipeline` | `prediction.regression` | Wraps `expand_features(settings)` + regressor as a `sklearn.pipeline.Pipeline`; estimator threaded through `fit_pipeline`, `predict`, `fit_conformal`, `bootstrap_confidence_intervals` |
+| `RegressorMixin` | `sklearn.base` | Swap sklearn estimators by adding them to the `VotingRegressor.estimators` list; `compare_models` reconstructs one `regression_pipeline(...)` per base internally |
+| `regression_pipeline` | `prediction.regression` | Wraps a shared `features` transformer (built once via `expand_features(settings)`) + regressor as a `sklearn.pipeline.Pipeline`; used internally by `compare_models` and exposed for callers that want a single-model pipeline |
+| `VotingRegressor` | `sklearn.ensemble` | Holds the comparison roster as `(name, base)` pairs inside `Pipeline([("features", …), ("ensemble", VotingRegressor(...))])`; no `final_estimator` required (averages bases). Introspected via `regressors.named_steps[ENSEMBLE_STEP].estimators` |
+| `expand_features` | `core.features` | Builds the polynomial + Fourier feature stage shared across every regressor |
 | `prepare_split` | `core.features` | Single helper for split selection (returns raw `x`, `y`; Pipeline owns transforms) |
 | `visualization.theme` | `CHART_*`, `INTERVAL_COLOR_*` | Shared chart dimensions and palettes |
 
@@ -56,23 +58,26 @@ Forks should extend behaviour through these seams rather than editing call sites
 ```mermaid
 flowchart LR
   Settings --> generate_dataset
-  Settings --> regression_pipeline
-  random_forest_regressor --> regression_pipeline
+  Settings --> expand_features
+  expand_features --> ensemble_pipeline[Pipeline: features + VotingRegressor]
+  random_forest_regressor --> VotingRegressor
+  svm_regressor --> VotingRegressor
+  VotingRegressor --> ensemble_pipeline
+  ensemble_pipeline --> compare_models
   generate_dataset --> split
-  split --> fit_pipeline
+  split --> compare_models
+  compare_models --> regression_pipeline
   regression_pipeline --> fit_pipeline
   fit_pipeline --> predict
   predict --> regression_metrics
-  regression_pipeline --> bootstrap_confidence_intervals
+  regression_pipeline --> confidence_intervals
   regression_pipeline --> fit_conformal
   fit_conformal --> conformal_intervals
-  bootstrap_confidence_intervals --> plot_intervals
+  confidence_intervals --> plot_intervals
   conformal_intervals --> plot_intervals
   conformal_intervals --> interval_metrics
-  bootstrap_confidence_intervals --> interval_metrics
+  confidence_intervals --> interval_metrics
 ```
-
-Bootstrap resamples use `tqdm` for progress.
 
 ## Initialize the template
 

@@ -1,4 +1,5 @@
 from pandera.typing import DataFrame
+from sklearn.pipeline import Pipeline
 
 from analysis import compare_models
 from core import (
@@ -11,12 +12,11 @@ from core import (
     Settings,
 )
 from core.schemas import SplitDatasetBase
-from prediction import MultiRegressor
 
 
 def test_compare_models_predictions_validate_per_model(
     split_dataset: DataFrame[SplitDatasetBase],
-    two_model_regressors: MultiRegressor,
+    two_model_regressors: Pipeline,
     settings: Settings,
 ) -> None:
     report = compare_models(split_dataset, two_model_regressors, settings)
@@ -29,7 +29,7 @@ def test_compare_models_predictions_validate_per_model(
 
 def test_compare_models_intervals_validate_per_model(
     split_dataset: DataFrame[SplitDatasetBase],
-    two_model_regressors: MultiRegressor,
+    two_model_regressors: Pipeline,
     settings: Settings,
 ) -> None:
     report = compare_models(split_dataset, two_model_regressors, settings)
@@ -47,7 +47,7 @@ def test_compare_models_intervals_validate_per_model(
 
 def test_compare_models_metrics_validate_per_model(
     split_dataset: DataFrame[SplitDatasetBase],
-    two_model_regressors: MultiRegressor,
+    two_model_regressors: Pipeline,
     settings: Settings,
 ) -> None:
     report = compare_models(split_dataset, two_model_regressors, settings)

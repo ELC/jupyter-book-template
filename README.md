@@ -19,7 +19,7 @@ Beyond the book template, this repository includes a **typed ML demo library** (
 | `core` | Pandera schemas, `Settings`, sklearn `RegressorMixin` / `TransformerMixin`, `prepare_split` |
 | `simulation` | Synthetic regression dataset |
 | `prediction` | Random forest + MAPIE split conformal intervals |
-| `analysis` | Case bootstrap confidence intervals (`tqdm` progress) |
+| `analysis` | Cross-validation confidence intervals via `RepeatedKFold` |
 | `evaluation` | Bootstrap CIs for regression metrics; MAPIE width/MWI for intervals |
 | `visualization` | Altair plots with shared theme constants |
 

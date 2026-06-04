@@ -39,11 +39,24 @@ def _mwi_score(y_true: np.ndarray, y_intervals: np.ndarray, settings: Settings) 
     return regression_mwi_score(y_true, y_intervals, settings.confidence_level)
 
 
-CONFIDENCE_INTERVAL_METRICS: tuple[IntervalMetric, ...] = (IntervalMetric(IntervalMetricKind.WIDTH, _width_score),)
-PREDICTION_INTERVAL_METRICS: tuple[IntervalMetric, ...] = (IntervalMetric(IntervalMetricKind.MWI, _mwi_score),)
+def _coverage_score(y_true: np.ndarray, y_intervals: np.ndarray, _settings: Settings) -> float:
+    lower = y_intervals[:, 0, 0]
+    upper = y_intervals[:, 1, 0]
+    return float(((lower <= y_true) & (y_true <= upper)).mean())
+
+
+CONFIDENCE_INTERVAL_METRICS: tuple[IntervalMetric, ...] = (
+    IntervalMetric(IntervalMetricKind.WIDTH, _width_score),
+    IntervalMetric(IntervalMetricKind.COVERAGE, _coverage_score),
+)
+PREDICTION_INTERVAL_METRICS: tuple[IntervalMetric, ...] = (
+    IntervalMetric(IntervalMetricKind.WIDTH, _width_score),
+    IntervalMetric(IntervalMetricKind.MWI, _mwi_score),
+    IntervalMetric(IntervalMetricKind.COVERAGE, _coverage_score),
+)
 _INTERVAL_METRICS: dict[IntervalKind, tuple[IntervalMetric, ...]] = {
     IntervalKind.CONFIDENCE: CONFIDENCE_INTERVAL_METRICS,
-    IntervalKind.PREDICTION: CONFIDENCE_INTERVAL_METRICS + PREDICTION_INTERVAL_METRICS,
+    IntervalKind.PREDICTION: PREDICTION_INTERVAL_METRICS,
 }
 
 
@@ -76,9 +89,13 @@ def interval_metrics(
     predictions: DataFrame[PredictionsWithGroundTruth],
     *,
     settings: Settings,
+    target_column: str = PredictionsWithGroundTruth.y_true,
 ) -> DataFrame[IntervalMetricReport]:
+    target_frame = predictions[[Predictions.x, target_column]].rename(
+        columns={target_column: IntervalWithGroundTruth.y_true},
+    )
     merged = intervals.merge(
-        predictions[[Predictions.x, PredictionsWithGroundTruth.y_true]],
+        target_frame,
         left_on=IntervalBase.x,
         right_on=Predictions.x,
         how="inner",
