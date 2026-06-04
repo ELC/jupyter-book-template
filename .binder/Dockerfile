@@ -15,12 +15,14 @@ USER ${NB_UID}
 
 RUN --mount=type=bind,source=pyproject.toml,target=pyproject.toml \
     --mount=type=bind,source=uv.lock,target=uv.lock \
-    uv sync --all-groups --locked
+    uv sync --all-groups --locked --no-install-project
 
 RUN --mount=type=bind,source=.binder/bashrc-venv.sh,target=/mnt/bashrc-venv.sh,readonly \
     cat /mnt/bashrc-venv.sh >> .bashrc
 
 COPY --chown=${NB_UID}:${NB_GID} . .
+
+RUN uv sync --all-groups --locked
 
 ENV VIRTUAL_ENV=/home/jovyan/.venv
 ENV PATH="/home/jovyan/.venv/bin:${PATH}"
