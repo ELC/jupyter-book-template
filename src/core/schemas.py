@@ -3,10 +3,9 @@ from enum import StrEnum, auto
 import pandera.pandas as pa
 from pandera.typing import Series
 
-from core.settings import Settings
-
-_default_x_bounds = Settings()
-_X_FIELD = pa.Field(ge=_default_x_bounds.x_min, le=_default_x_bounds.x_max)
+DEFAULT_X_MIN = -10.0
+DEFAULT_X_MAX = 10.0
+_X_FIELD = pa.Field(ge=DEFAULT_X_MIN, le=DEFAULT_X_MAX)
 
 
 class IntervalKind(StrEnum):
@@ -35,6 +34,12 @@ class SplitKind(StrEnum):
 class ModelKind(StrEnum):
     RANDOM_FOREST = "random_forest"
     SVM = "svm"
+
+
+class ConformityScoreKind(StrEnum):
+    ABSOLUTE = "absolute"
+    GAMMA = "gamma"
+    RESIDUAL_NORMALIZED = "residual_normalized"
 
 
 _MODEL_FIELD = pa.Field(isin=[member.value for member in ModelKind])
@@ -130,10 +135,12 @@ class MetricReport(pa.DataFrameModel):
 class IntervalMetricReport(pa.DataFrameModel):
     kind: Series[str] = pa.Field(isin=[member.value for member in IntervalKind])
     metric: Series[str] = pa.Field(isin=[member.value for member in IntervalMetricKind])
-    value: Series[float]
+    lower: Series[float]
+    upper: Series[float]
 
 
 class PredictionsByModel(PredictionsWithGroundTruth):
+    mu_true: Series[float]
     model: Series[str] = _MODEL_FIELD
 
 

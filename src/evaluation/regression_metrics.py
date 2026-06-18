@@ -49,7 +49,7 @@ def _bootstrap_metric_intervals(
             n_resamples=settings.n_resamples,
             confidence_level=settings.confidence_level,
             paired=True,
-            method="basic",
+            method="bca",
             rng=rng,
         )
         lower, upper = result.confidence_interval

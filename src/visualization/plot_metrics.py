@@ -12,11 +12,9 @@ from core.schemas import (
 from visualization._common import configure_altair
 
 _REGRESSION_FACET_WIDTH = 420
-_REGRESSION_FACET_HEIGHT = 180
+_REGRESSION_FACET_HEIGHT = 240
 _INTERVAL_FACET_WIDTH = 420
-_INTERVAL_FACET_HEIGHT = 160
-_INTERVAL_TICK_THICKNESS = 4
-_INTERVAL_TICK_SIZE = 36
+_INTERVAL_FACET_HEIGHT = 240
 
 
 def _regression_metric_layers(
@@ -70,35 +68,47 @@ def plot_regression_metrics(report: ModelComparisonReport) -> alt.FacetChart:
     )
 
 
+def _interval_metric_layers(
+    metrics: DataFrame[IntervalMetricReportByModel],
+) -> alt.LayerChart:
+    color = alt.Color(
+        f"{IntervalMetricReportByModel.model}:N",
+        legend=alt.Legend(title="Model"),
+    )
+    tooltip = [
+        f"{IntervalMetricReportByModel.model}:N",
+        f"{IntervalMetricReportByModel.metric}:N",
+        f"{IntervalMetricReportByModel.lower}:Q",
+        f"{IntervalMetricReportByModel.upper}:Q",
+    ]
+    base = alt.Chart(metrics).encode(
+        y=alt.Y(f"{IntervalMetricReportByModel.model}:N", title=None),
+        color=color,
+        tooltip=tooltip,
+    )
+    range_rule = base.mark_rule(size=3).encode(
+        x=alt.X(f"{IntervalMetricReportByModel.lower}:Q", title="Score"),
+        x2=f"{IntervalMetricReportByModel.upper}:Q",
+    )
+    lower_tick = base.mark_tick(thickness=2, size=18).encode(
+        x=alt.X(f"{IntervalMetricReportByModel.lower}:Q", title="Score"),
+    )
+    upper_tick = base.mark_tick(thickness=2, size=18).encode(
+        x=alt.X(f"{IntervalMetricReportByModel.upper}:Q", title="Score"),
+    )
+    return alt.layer(range_rule, lower_tick, upper_tick)
+
+
 def _interval_kind_chart(
     metrics: DataFrame[IntervalMetricReportByModel],
     kind: IntervalKind,
 ) -> alt.FacetChart:
-    point = (
-        alt
-        .Chart(metrics)
-        .mark_tick(
-            thickness=_INTERVAL_TICK_THICKNESS,
-            size=_INTERVAL_TICK_SIZE,
-            orient="vertical",
-        )
-        .encode(
-            y=alt.Y(f"{IntervalMetricReportByModel.model}:N", title=None),
-            x=alt.X(f"{IntervalMetricReportByModel.value}:Q", title="Score"),
-            color=alt.Color(
-                f"{IntervalMetricReportByModel.model}:N",
-                legend=alt.Legend(title="Model"),
-            ),
-            tooltip=[
-                f"{IntervalMetricReportByModel.model}:N",
-                f"{IntervalMetricReportByModel.metric}:N",
-                f"{IntervalMetricReportByModel.value}:Q",
-            ],
-        )
-        .properties(width=_INTERVAL_FACET_WIDTH, height=_INTERVAL_FACET_HEIGHT)
+    layered = _interval_metric_layers(metrics).properties(
+        width=_INTERVAL_FACET_WIDTH,
+        height=_INTERVAL_FACET_HEIGHT,
     )
     return (
-        point
+        layered
         .facet(
             column=alt.Column(
                 f"{IntervalMetricReportByModel.metric}:N",
@@ -107,7 +117,7 @@ def _interval_kind_chart(
             ),
         )
         .resolve_scale(x="independent")
-        .properties(title=f"{kind.value.title()} intervals")
+        .properties(title=f"{kind.value.title()} intervals (bootstrap CI)")
     )
 
 

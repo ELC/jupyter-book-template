@@ -5,6 +5,7 @@ import numpy as np
 import pandas as pd
 from mapie.metrics.regression import regression_mean_width_score, regression_mwi_score
 from pandera.typing import DataFrame
+from scipy.stats import bootstrap
 
 from core import (
     ConfidenceInterval,
@@ -60,10 +61,31 @@ _INTERVAL_METRICS: dict[IntervalKind, tuple[IntervalMetric, ...]] = {
 }
 
 
-def _mapie_interval_array(merged: DataFrame[IntervalWithGroundTruth]) -> np.ndarray:
-    lower = merged[IntervalBase.lower].to_numpy()
-    upper = merged[IntervalBase.upper].to_numpy()
+def _stack_intervals(lower: np.ndarray, upper: np.ndarray) -> np.ndarray:
     return np.stack([lower, upper], axis=1)[:, :, np.newaxis]
+
+
+def _bootstrap_interval_metric_ci(
+    y_true: np.ndarray,
+    lower: np.ndarray,
+    upper: np.ndarray,
+    metric: IntervalMetric,
+    settings: Settings,
+) -> tuple[float, float]:
+    def statistic(y_true_sample: np.ndarray, lower_sample: np.ndarray, upper_sample: np.ndarray) -> float:
+        return metric(y_true_sample, _stack_intervals(lower_sample, upper_sample), settings)
+
+    rng = np.random.default_rng(settings.bootstrap_seed)
+    result = bootstrap(
+        (y_true, lower, upper),
+        statistic=statistic,
+        n_resamples=settings.n_resamples,
+        confidence_level=settings.confidence_level,
+        paired=True,
+        method="bca",
+        rng=rng,
+    )
+    return float(result.confidence_interval.low), float(result.confidence_interval.high)
 
 
 def _interval_metric_report(
@@ -72,15 +94,19 @@ def _interval_metric_report(
 ) -> DataFrame[IntervalMetricReport]:
     kind = IntervalKind(merged[IntervalWithGroundTruth.kind].iloc[0])
     y_true = merged[IntervalWithGroundTruth.y_true].to_numpy()
-    y_intervals = _mapie_interval_array(merged)
-    rows = [
-        {
-            IntervalMetricReport.kind: kind.value,
-            IntervalMetricReport.metric: metric.name.value,
-            IntervalMetricReport.value: metric(y_true, y_intervals, settings),
-        }
-        for metric in _INTERVAL_METRICS[kind]
-    ]
+    lower = merged[IntervalBase.lower].to_numpy()
+    upper = merged[IntervalBase.upper].to_numpy()
+    rows: list[dict[str, object]] = []
+    for metric in _INTERVAL_METRICS[kind]:
+        ci_low, ci_high = _bootstrap_interval_metric_ci(y_true, lower, upper, metric, settings)
+        rows.append(
+            {
+                IntervalMetricReport.kind: kind.value,
+                IntervalMetricReport.metric: metric.name.value,
+                IntervalMetricReport.lower: ci_low,
+                IntervalMetricReport.upper: ci_high,
+            },
+        )
     return pd.DataFrame(rows).pipe(DataFrame[IntervalMetricReport])
 
 

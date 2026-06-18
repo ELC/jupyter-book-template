@@ -4,21 +4,21 @@ import numpy as np
 from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from core.schemas import DEFAULT_X_MAX, DEFAULT_X_MIN, ConformityScoreKind
+
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(frozen=True)
 
     n_samples: int = Field(default=400, gt=0)
-    x_min: float = Field(default=-10.0)
-    x_max: float = Field(default=10.0)
+    x_min: float = Field(default=DEFAULT_X_MIN)
+    x_max: float = Field(default=DEFAULT_X_MAX)
     noise_scale: float = 0.2
     noise_heteroscedasticity: float = 20
     seed: int = 0
     seasonality_amplitude: float = 10.0
     seasonality_frequency: float = 0.5
     n_resamples: int = Field(default=200, gt=0)
-    cv_n_splits: int = Field(default=10, gt=1)
-    cv_n_repeats: int = Field(default=5, gt=0)
     confidence_level: float = Field(default=0.95, gt=0, lt=1)
     n_estimators: int = Field(default=100, gt=0)
     max_depth: int = 5
@@ -28,6 +28,7 @@ class Settings(BaseSettings):
     fourier_terms: int = Field(default=6, ge=0)
     svm_gamma: float = Field(default=0.1, gt=0)
     svm_kernel: str = "rbf"
+    conformity_score: ConformityScoreKind = ConformityScoreKind.RESIDUAL_NORMALIZED
 
     @property
     def bootstrap_seed(self) -> int:
