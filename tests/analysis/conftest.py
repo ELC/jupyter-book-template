@@ -30,37 +30,36 @@ def two_model_regressors(settings: Settings) -> Pipeline:
 
 
 @pytest.fixture
-def deterministic_cv_settings() -> Settings:
-    return Settings(cv_n_splits=5, cv_n_repeats=2, confidence_level=0.90, seed=0)
+def deterministic_bootstrap_settings() -> Settings:
+    return Settings(n_resamples=20, confidence_level=0.90, seed=0)
 
 
 @pytest.fixture
-def positive_width_cv_settings() -> Settings:
-    return Settings(cv_n_splits=5, cv_n_repeats=2, confidence_level=0.90, seed=1)
+def positive_width_bootstrap_settings() -> Settings:
+    return Settings(n_resamples=20, confidence_level=0.90, seed=1)
 
 
 @pytest.fixture
-def varying_width_cv_settings() -> Settings:
-    return Settings(cv_n_splits=5, cv_n_repeats=3, confidence_level=0.95, seed=0)
+def varying_width_bootstrap_settings() -> Settings:
+    return Settings(n_resamples=30, confidence_level=0.95, seed=0)
 
 
 @pytest.fixture
-def minimal_cv_settings() -> Settings:
-    return Settings(cv_n_splits=3, cv_n_repeats=1)
+def minimal_bootstrap_settings() -> Settings:
+    return Settings(n_resamples=5)
 
 
 @pytest.fixture
-def small_cv_settings(settings: Settings) -> Settings:
-    return Settings(**{**settings.model_dump(), "cv_n_splits": 5, "cv_n_repeats": 1})
+def small_bootstrap_settings(settings: Settings) -> Settings:
+    return Settings(**{**settings.model_dump(), "n_resamples": 10})
 
 
 @pytest.fixture
-def empirical_coverage_cv_settings(settings: Settings) -> Settings:
+def empirical_coverage_bootstrap_settings(settings: Settings) -> Settings:
     return Settings(
         **{
             **settings.model_dump(),
-            "cv_n_splits": 5,
-            "cv_n_repeats": 4,
+            "n_resamples": 30,
             "confidence_level": 0.90,
             "seed": 0,
         },

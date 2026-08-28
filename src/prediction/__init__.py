@@ -1,4 +1,4 @@
-from prediction.conformal import conformal_intervals, fit_conformal
+from prediction.conformal import build_conformity_score, conformal_intervals, fit_conformal
 from prediction.random_forest import random_forest_regressor
 from prediction.regression import (
     ENSEMBLE_STEP,
@@ -16,6 +16,7 @@ __all__ = [
     "REGRESSOR_STEP",
     "SCALER_STEP",
     "SVR_STEP",
+    "build_conformity_score",
     "conformal_intervals",
     "fit_conformal",
     "fit_pipeline",

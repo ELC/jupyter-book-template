@@ -1,7 +1,6 @@
 from pandera.typing import DataFrame
 
-from core import SplitKind, TrainingData, build_split_dataset, select_split
-from core.schemas import SplitDatasetBase
+from core import SplitDatasetBase, SplitKind, TrainingData, build_split_dataset, select_split
 
 
 def test_build_split_dataset_partitions_into_three_folds(

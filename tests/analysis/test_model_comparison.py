@@ -10,8 +10,8 @@ from core import (
     PredictionIntervalByModel,
     PredictionsByModel,
     Settings,
+    SplitDatasetBase,
 )
-from core.schemas import SplitDatasetBase
 
 
 def test_compare_models_predictions_validate_per_model(
@@ -58,3 +58,5 @@ def test_compare_models_metrics_validate_per_model(
         ModelKind.RANDOM_FOREST.value,
         ModelKind.SVM.value,
     }
+    assert (report.prediction_metrics["lower"] <= report.prediction_metrics["upper"]).all()
+    assert (report.confidence_metrics["lower"] <= report.confidence_metrics["upper"]).all()

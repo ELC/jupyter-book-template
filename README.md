@@ -29,7 +29,7 @@ Developer commands:
 
 ```bash
 uv sync --all-groups
-uv run poe test          # 100% coverage gate
+uv run pytest            # 100% coverage gate
 uv run poe ci            # pre-commit + tests + book build
 ```
 

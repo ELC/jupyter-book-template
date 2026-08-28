@@ -4,8 +4,15 @@ import pytest
 from pandera.typing import DataFrame
 from sklearn.pipeline import Pipeline
 
-from core import Settings, SplitKind, TrainingData, build_split_dataset, expand_features, select_split
-from core.schemas import SplitDatasetBase
+from core import (
+    Settings,
+    SplitDatasetBase,
+    SplitKind,
+    TrainingData,
+    build_split_dataset,
+    expand_features,
+    select_split,
+)
 from prediction import fit_pipeline, random_forest_regressor, regression_pipeline
 from simulation import generate_dataset
 

@@ -2,7 +2,7 @@ from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
 from sklearn.svm import SVR
 
-from core.settings import Settings
+from core import Settings
 
 SCALER_STEP = "scaler"
 SVR_STEP = "svr"

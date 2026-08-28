@@ -52,12 +52,23 @@ def _bootstrap_metric_intervals(
             method="bca",
             rng=rng,
         )
-        lower, upper = result.confidence_interval
+        lower, upper = map(float, result.confidence_interval)
+        if not np.isfinite(lower) or not np.isfinite(upper):
+            fallback = bootstrap(
+                (y_true, y_pred),
+                statistic=metric,
+                n_resamples=settings.n_resamples,
+                confidence_level=settings.confidence_level,
+                paired=True,
+                method="percentile",
+                rng=rng,
+            )
+            lower, upper = map(float, fallback.confidence_interval)
         rows.append(
             {
                 MetricReport.metric: metric.name.value,
-                MetricReport.lower: float(lower),
-                MetricReport.upper: float(upper),
+                MetricReport.lower: lower,
+                MetricReport.upper: upper,
             },
         )
     return pd.DataFrame(rows).pipe(DataFrame[MetricReport])

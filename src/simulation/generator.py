@@ -2,8 +2,7 @@ import numpy as np
 import pandas as pd
 from pandera.typing import DataFrame
 
-from core.schemas import TrainingData
-from core.settings import Settings
+from core import Settings, TrainingData
 
 
 def _signal(x: np.ndarray) -> np.ndarray:

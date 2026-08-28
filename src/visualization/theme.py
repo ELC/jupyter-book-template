@@ -1,6 +1,6 @@
 from collections.abc import Mapping
 
-from core.schemas import IntervalKind
+from core import IntervalKind
 
 CHART_WIDTH = 640
 CHART_HEIGHT = 400

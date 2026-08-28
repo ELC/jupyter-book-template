@@ -36,9 +36,9 @@ Library code lives under `src/` as installable top-level packages (`core`, `simu
 
 - Public DataFrame types are defined in `core.schemas` using Pandera `DataFrameModel`.
 - Do not use bare `pd.DataFrame` in function signatures; use `pandera.typing.DataFrame[Schema]`.
-- Tests mirror `src/` 1:1 under `tests/`; run with `uv run poe test`.
-- Lint/format/typecheck for `src/` and `tests/` are scoped in `[tool.poe.tasks]` (`lint`, `format`, `pylint`, `mypy`); pre-commit **local** hooks invoke those Poe tasks so `uv.lock` is the single source of tool versions.
-- CI runs split jobs: `lint` (`poe check`), `test` (`poe test` + coverage artifact), and `book` (`poe build-book`) when relevant paths change.
+- Tests mirror `src/` 1:1 under `tests/`; run with `uv run pytest`.
+- Lint, format, and typecheck settings live in `pyproject.toml`; pre-commit **local** hooks run `uv run ruff` / `pylint` / `mypy` so `uv.lock` is the single source of tool versions.
+- CI runs `poe check`, then `pytest`, then `poe build-book` (`uv run poe ci`).
 
 ### SOLID extension points
 
@@ -142,7 +142,7 @@ Update README badges and links (project URL, Binder, Colab, GitHub Pages URL). R
 ```bash
 uv run poe build-book    # build static HTML with executed notebooks
 uv run poe serve-book    # build, then preview at http://localhost:8000
-uv run poe test          # run pytest with 100% coverage
+uv run pytest            # run pytest with 100% coverage
 uv run poe ci            # pre-commit checks + tests + build (same as CI)
 ```
 
@@ -294,9 +294,10 @@ Python packages for notebook execution are declared in `pyproject.toml` under `[
 | Build + preview | `uv run poe serve-book` |
 | Lint + build (CI) | `uv run poe ci` |
 | Build Binder image | `uv run poe build-docker` |
-| Ruff lint (`src`, `tests`) | `uv run poe lint` |
-| Ruff format (`src`, `tests`) | `uv run poe format` |
-| Pylint / mypy (`src`, `tests`) | `uv run poe pylint` / `uv run poe mypy` |
+| Ruff lint | `uv run ruff check --exit-non-zero-on-fix` |
+| Ruff format | `uv run ruff format` |
+| Pylint / mypy | `uv run pylint` / `uv run mypy` |
+| Tests | `uv run pytest` |
 | Pre-commit (all hooks) | `uv run poe check` |
 | Clean build artifacts | `cd book && uv run jupyter book clean` |
 

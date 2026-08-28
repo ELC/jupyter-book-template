@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, NamedTuple
+from typing import TYPE_CHECKING, NamedTuple, cast
 
 import numpy as np
 import pandas as pd
@@ -9,9 +9,8 @@ from scipy.stats import norm
 from sklearn.base import clone
 from sklearn.pipeline import Pipeline
 
-from analysis.bootstrap import confidence_intervals
-from core.features import prepare_split
-from core.schemas import (
+from analysis import confidence_intervals
+from core import (
     ConfidenceIntervalByModel,
     IntervalKind,
     IntervalMetricKind,
@@ -21,23 +20,31 @@ from core.schemas import (
     PredictionIntervalByModel,
     Predictions,
     PredictionsByModel,
+    PredictionsWithGroundTruth,
     RegressionMetricKind,
+    Settings,
     SplitDatasetBase,
     SplitKind,
+    prepare_split,
 )
-from core.settings import Settings
-from evaluation.interval_metrics import PREDICTION_INTERVAL_METRICS, interval_metrics
-from evaluation.regression_metrics import regression_metrics
-from prediction.conformal import conformal_intervals, fit_conformal
-from prediction.regression import ENSEMBLE_STEP, FEATURES_STEP, fit_pipeline, predict, regression_pipeline
-from simulation.generator import mean_function
+from evaluation import PREDICTION_INTERVAL_METRICS, interval_metrics, regression_metrics
+from prediction import (
+    ENSEMBLE_STEP,
+    FEATURES_STEP,
+    build_conformity_score,
+    conformal_intervals,
+    fit_conformal,
+    fit_pipeline,
+    predict,
+    regression_pipeline,
+)
+from simulation import mean_function
 
 if TYPE_CHECKING:
     from sklearn.base import BaseEstimator
     from sklearn.ensemble import VotingRegressor
 
 MODEL_COLUMN = "model"
-MU_TRUE_COLUMN = "mu_true"
 
 
 @dataclass(frozen=True, slots=True)
@@ -52,6 +59,14 @@ class ModelComparisonReport:
 
 def _tag(frame: pd.DataFrame, name: str) -> pd.DataFrame:
     return frame.assign(**{MODEL_COLUMN: name})
+
+
+def _attach_mu_true(
+    preds: DataFrame[PredictionsWithGroundTruth],
+    settings: Settings,
+) -> pd.DataFrame:
+    mu_true = mean_function(preds[Predictions.x].to_numpy(), settings)
+    return preds.assign(**{PredictionsByModel.mu_true: mu_true})
 
 
 def _sort_key(series: pd.Series, ranks: dict[str, dict[str, int]]) -> pd.Series:
@@ -69,18 +84,18 @@ def _sorted_by(frame: pd.DataFrame, orders: dict[str, list[str]]) -> pd.DataFram
 
 def _conformalize_and_intervals(
     estimator: Pipeline,
-    cal_x: np.ndarray,
-    cal_y: np.ndarray,
-    eval_x: np.ndarray,
+    pipeline: Pipeline,
+    arrays: "_ConformalArrays",
     settings: Settings,
 ) -> tuple[np.ndarray, np.ndarray]:
     conformal = SplitConformalRegressor(
         estimator=estimator,
         confidence_level=settings.confidence_level,
+        conformity_score=build_conformity_score(pipeline, settings),
         prefit=True,
     )
-    conformal.conformalize(cal_x, cal_y)
-    _, intervals = conformal.predict_interval(eval_x)
+    conformal.conformalize(arrays.cal_x, arrays.cal_y)
+    _, intervals = conformal.predict_interval(arrays.eval_x)
     lower, upper = intervals[..., 0].T
     return lower, upper
 
@@ -104,18 +119,26 @@ class _ConformalArrays(NamedTuple):
 
 def _jackknife_metric_replicates(
     fitted_estimator: Pipeline,
+    pipeline: Pipeline,
     arrays: _ConformalArrays,
     settings: Settings,
 ) -> dict[IntervalMetricKind, np.ndarray]:
     n_cal = len(arrays.cal_y)
-    samples: dict[IntervalMetricKind, list[float]] = {
-        metric.name: [] for metric in PREDICTION_INTERVAL_METRICS
-    }
+    samples: dict[IntervalMetricKind, list[float]] = {metric.name: [] for metric in PREDICTION_INTERVAL_METRICS}
     for left_out in range(n_cal):
         keep = np.ones(n_cal, dtype=bool)
         keep[left_out] = False
+        loo_arrays = _ConformalArrays(
+            cal_x=arrays.cal_x[keep],
+            cal_y=arrays.cal_y[keep],
+            eval_x=arrays.eval_x,
+            eval_y=arrays.eval_y,
+        )
         lower_loo, upper_loo = _conformalize_and_intervals(
-            fitted_estimator, arrays.cal_x[keep], arrays.cal_y[keep], arrays.eval_x, settings,
+            fitted_estimator,
+            pipeline,
+            loo_arrays,
+            settings,
         )
         values = _prediction_interval_metric_values(lower_loo, upper_loo, arrays.eval_y, settings)
         for key, value in values.items():
@@ -175,17 +198,25 @@ def _jackknife_prediction_interval_metrics(
     )
 
     original_lower, original_upper = _conformalize_and_intervals(
-        fitted_estimator, arrays.cal_x, arrays.cal_y, arrays.eval_x, settings,
+        fitted_estimator,
+        pipeline,
+        arrays,
+        settings,
     )
     theta_hat = _prediction_interval_metric_values(
-        original_lower, original_upper, arrays.eval_y, settings,
+        original_lower,
+        original_upper,
+        arrays.eval_y,
+        settings,
     )
-    replicates = _jackknife_metric_replicates(fitted_estimator, arrays, settings)
+    replicates = _jackknife_metric_replicates(fitted_estimator, pipeline, arrays, settings)
 
     rows = []
     for metric in PREDICTION_INTERVAL_METRICS:
         ci_low, ci_high = _jackknife_confidence_interval(
-            theta_hat[metric.name], replicates[metric.name], settings,
+            theta_hat[metric.name],
+            replicates[metric.name],
+            settings,
         )
         rows.append(
             {
@@ -216,18 +247,21 @@ def _score_model(
 ) -> _PerModelFrames:
     fitted = fit_pipeline(data, pipeline)
     preds = predict(fitted, data)
+    preds_with_mu = _attach_mu_true(preds, settings)
     ci = confidence_intervals(pipeline, data, settings)
     pi = conformal_intervals(fit_conformal(data, pipeline, settings), data)
-    preds_with_mu = preds.assign(
-        **{MU_TRUE_COLUMN: mean_function(preds[Predictions.x].to_numpy(), settings)},
-    )
     return _PerModelFrames(
-        predictions=_tag(preds, name),
+        predictions=_tag(preds_with_mu, name),
         confidence=_tag(ci, name),
         prediction=_tag(pi, name),
         regression_metrics=_tag(regression_metrics(preds, settings=settings), name),
         confidence_metrics=_tag(
-            interval_metrics(ci, preds_with_mu, settings=settings, target_column=MU_TRUE_COLUMN),
+            interval_metrics(
+                ci,
+                cast("DataFrame[PredictionsWithGroundTruth]", preds_with_mu),
+                settings=settings,
+                target_column=PredictionsByModel.mu_true,
+            ),
             name,
         ),
         prediction_metrics=_tag(

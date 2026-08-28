@@ -1,8 +1,10 @@
+from typing import cast
+
 import altair as alt
 from pandera.typing import DataFrame
 
-from analysis.model_comparison import ModelComparisonReport
-from core.schemas import (
+from analysis import ModelComparisonReport
+from core import (
     IntervalKind,
     IntervalMetricKind,
     IntervalMetricReportByModel,
@@ -96,7 +98,7 @@ def _interval_metric_layers(
     upper_tick = base.mark_tick(thickness=2, size=18).encode(
         x=alt.X(f"{IntervalMetricReportByModel.upper}:Q", title="Score"),
     )
-    return alt.layer(range_rule, lower_tick, upper_tick)
+    return cast("alt.LayerChart", alt.layer(range_rule, lower_tick, upper_tick))
 
 
 def _interval_kind_chart(

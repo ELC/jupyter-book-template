@@ -1,6 +1,6 @@
 from sklearn.ensemble import RandomForestRegressor
 
-from core.settings import Settings
+from core import Settings
 
 
 def random_forest_regressor(settings: Settings) -> RandomForestRegressor:

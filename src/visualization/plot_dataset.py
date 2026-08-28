@@ -1,7 +1,7 @@
 import altair as alt
 from pandera.typing import DataFrame
 
-from core.schemas import TrainingData
+from core import TrainingData
 from visualization._common import configure_altair
 from visualization.theme import CHART_HEIGHT, CHART_WIDTH
 
@@ -21,5 +21,5 @@ def plot_dataset(data: DataFrame[TrainingData]) -> alt.FacetChart | alt.LayerCha
     return alt.layer(scatter).properties(
         width=CHART_WIDTH,
         height=CHART_HEIGHT,
-        title="Synthetic training data",
+        title="Synthetic dataset",
     )

@@ -4,10 +4,19 @@ from mapie.regression import SplitConformalRegressor
 from pandera.typing import DataFrame
 from sklearn.pipeline import Pipeline
 
-from core import IntervalKind, IntervalMetricKind, PredictionInterval, Settings, SplitKind, select_split
-from core.schemas import SplitDatasetBase, TrainingData
+from core import (
+    ConformityScoreKind,
+    IntervalKind,
+    IntervalMetricKind,
+    PredictionInterval,
+    Settings,
+    SplitDatasetBase,
+    SplitKind,
+    TrainingData,
+    select_split,
+)
 from evaluation import interval_metrics
-from prediction import conformal_intervals, fit_conformal, predict
+from prediction import build_conformity_score, conformal_intervals, fit_conformal, predict
 
 
 def test_fit_conformal_returns_split_conformal_regressor(
@@ -26,6 +35,17 @@ def test_fit_conformal_accepts_fitted_template(
 ) -> None:
     model = fit_conformal(split_dataset, fitted_pipeline, settings)
     assert isinstance(model, SplitConformalRegressor)
+
+
+def test_build_conformity_score_returns_string_for_non_residual_mode(
+    settings: Settings,
+    unfitted_pipeline: Pipeline,
+) -> None:
+    absolute_settings = settings.model_copy(
+        update={"conformity_score": ConformityScoreKind.ABSOLUTE},
+    )
+    conformity_score = build_conformity_score(unfitted_pipeline, absolute_settings)
+    assert conformity_score == ConformityScoreKind.ABSOLUTE.value
 
 
 def test_conformal_intervals_aligns_with_evaluation_split(
@@ -72,4 +92,5 @@ def test_conformal_empirical_coverage_near_confidence_level(
     assert set(report["metric"].tolist()) == {
         IntervalMetricKind.WIDTH.value,
         IntervalMetricKind.MWI.value,
+        IntervalMetricKind.COVERAGE.value,
     }

@@ -1,12 +1,40 @@
 import pandas as pd
+from mapie.conformity_scores import BaseRegressionScore, ResidualNormalisedScore
 from mapie.regression import SplitConformalRegressor
 from pandera.typing import DataFrame
 from sklearn.base import clone
+from sklearn.linear_model import LinearRegression
 from sklearn.pipeline import Pipeline
 
-from core.features import prepare_split
-from core.schemas import PredictionInterval, SplitDatasetBase, SplitKind
-from core.settings import Settings
+from core import ConformityScoreKind, PredictionInterval, Settings, SplitDatasetBase, SplitKind, prepare_split
+from prediction.regression import FEATURES_STEP, REGRESSOR_STEP
+
+
+def _residual_estimator(pipeline: Pipeline) -> Pipeline:
+    # The residual model regresses log|y - y_hat| on the same expanded basis
+    # the predictor sees (poly + Fourier), so it can capture heteroscedasticity
+    # that is nonlinear in the raw input. A LinearRegression head is enough
+    # because the basis already encodes the nonlinearity.
+    features = clone(pipeline.named_steps[FEATURES_STEP])
+    return Pipeline(
+        steps=[
+            (FEATURES_STEP, features),
+            (REGRESSOR_STEP, LinearRegression()),
+        ],
+    )
+
+
+def build_conformity_score(
+    pipeline: Pipeline,
+    settings: Settings,
+) -> str | BaseRegressionScore:
+    if settings.conformity_score is ConformityScoreKind.RESIDUAL_NORMALIZED:
+        return ResidualNormalisedScore(
+            residual_estimator=_residual_estimator(pipeline),
+            prefit=False,
+            random_state=settings.seed,
+        )
+    return settings.conformity_score.value
 
 
 def fit_conformal(
@@ -20,6 +48,7 @@ def fit_conformal(
     conformal = SplitConformalRegressor(
         estimator=estimator,
         confidence_level=settings.confidence_level,
+        conformity_score=build_conformity_score(pipeline, settings),
         prefit=False,
     )
     conformal.fit(train.x, train.y)

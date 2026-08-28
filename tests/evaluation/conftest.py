@@ -4,8 +4,13 @@ from pandera.typing import DataFrame
 from sklearn.pipeline import Pipeline
 
 from analysis import confidence_intervals
-from core import ConfidenceInterval, PredictionInterval, PredictionsWithGroundTruth, Settings
-from core.schemas import SplitDatasetBase
+from core import (
+    ConfidenceInterval,
+    PredictionInterval,
+    PredictionsWithGroundTruth,
+    Settings,
+    SplitDatasetBase,
+)
 from prediction import conformal_intervals, fit_conformal, predict
 
 

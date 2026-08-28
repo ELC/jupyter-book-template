@@ -3,9 +3,16 @@ from sklearn.linear_model import LinearRegression
 from sklearn.pipeline import FeatureUnion, Pipeline
 from sklearn.preprocessing import FunctionTransformer
 
-from core import Predictions, PredictionsWithGroundTruth, Settings, SplitKind, select_split
-from core.features import expand_features
-from core.schemas import SplitDatasetBase, TrainingData
+from core import (
+    Predictions,
+    PredictionsWithGroundTruth,
+    Settings,
+    SplitDatasetBase,
+    SplitKind,
+    TrainingData,
+    expand_features,
+    select_split,
+)
 from prediction import (
     FEATURES_STEP,
     REGRESSOR_STEP,

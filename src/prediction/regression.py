@@ -3,8 +3,7 @@ from pandera.typing import DataFrame
 from sklearn.base import BaseEstimator, clone
 from sklearn.pipeline import Pipeline
 
-from core.features import prepare_split
-from core.schemas import Predictions, PredictionsWithGroundTruth, SplitDatasetBase, SplitKind
+from core import Predictions, PredictionsWithGroundTruth, SplitDatasetBase, SplitKind, prepare_split
 
 FEATURES_STEP = "features"
 REGRESSOR_STEP = "regressor"

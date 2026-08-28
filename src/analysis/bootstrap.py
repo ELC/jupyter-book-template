@@ -7,9 +7,7 @@ from pandera.typing import DataFrame
 from sklearn.base import clone
 from sklearn.pipeline import Pipeline
 
-from core.schemas import ConfidenceInterval, SplitDatasetBase, SplitKind, TrainingData
-from core.settings import Settings
-from core.splits import select_split
+from core import ConfidenceInterval, Settings, SplitDatasetBase, SplitKind, TrainingData, select_split
 
 _RANDOM_STATE_SUFFIX = "random_state"
 
@@ -42,7 +40,7 @@ def _clone_with_seed(pipeline: Pipeline, seed: int | None) -> Pipeline:
     return fresh
 
 
-def _fit_and_predict(
+def fit_and_predict(
     pipeline: Pipeline,
     train: DataFrame[TrainingData],
     eval_data: DataFrame[TrainingData],
@@ -56,7 +54,7 @@ def _fit_and_predict(
     return fitted_pipeline.predict(eval_x)
 
 
-_delayed_fit_and_predict = delayed(_fit_and_predict)
+_delayed_fit_and_predict = delayed(fit_and_predict)
 
 
 def _spawn_seeds(parent_seed: int, count: int) -> list[int]:
@@ -64,7 +62,7 @@ def _spawn_seeds(parent_seed: int, count: int) -> list[int]:
     return [int(child.generate_state(1)[0]) for child in children]
 
 
-def _case_resample(
+def case_resample(
     train: DataFrame[TrainingData],
     rng: np.random.Generator,
 ) -> DataFrame[TrainingData]:
@@ -81,7 +79,7 @@ def _collect_bootstrap_predictions(
 ) -> np.ndarray:
     resample_rng = np.random.default_rng(settings.bootstrap_seed)
     fit_seeds = _spawn_seeds(settings.bootstrap_seed, settings.n_resamples)
-    resamples = [_case_resample(train, resample_rng) for _ in range(settings.n_resamples)]
+    resamples = [case_resample(train, resample_rng) for _ in range(settings.n_resamples)]
     tasks = (
         _delayed_fit_and_predict(pipeline, resample, eval_data, fit_seeds[index])
         for index, resample in enumerate(resamples)
@@ -98,7 +96,7 @@ def _run_bootstrap(
     settings: Settings,
 ) -> BootstrapFit:
     bootstrap_predictions = _collect_bootstrap_predictions(pipeline, train, eval_data, settings)
-    theta_hat = _fit_and_predict(pipeline, train, eval_data, seed=None)
+    theta_hat = fit_and_predict(pipeline, train, eval_data, seed=None)
     return BootstrapFit(bootstrap_predictions, theta_hat, eval_data)
 
 

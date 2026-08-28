@@ -6,9 +6,16 @@ from sklearn.pipeline import FeatureUnion
 from sklearn.preprocessing import FunctionTransformer
 from sklearn.utils.validation import check_is_fitted
 
-from core import FourierFeatures, Settings, SplitKind, expand_features, select_split
-from core.features import prepare_split
-from core.schemas import SplitDatasetBase, TrainingData
+from core import (
+    FourierFeatures,
+    Settings,
+    SplitDatasetBase,
+    SplitKind,
+    TrainingData,
+    expand_features,
+    prepare_split,
+    select_split,
+)
 
 
 def _column(x: np.ndarray) -> np.ndarray:

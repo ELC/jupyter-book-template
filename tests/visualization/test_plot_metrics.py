@@ -3,7 +3,7 @@ import pandas as pd
 import pytest
 from pandera.typing import DataFrame
 
-from analysis.model_comparison import ModelComparisonReport
+from analysis import ModelComparisonReport
 from core import (
     ConfidenceIntervalByModel,
     IntervalKind,
@@ -45,7 +45,8 @@ def _two_model_interval_metrics(kind: IntervalKind) -> DataFrame[IntervalMetricR
             {
                 IntervalMetricReportByModel.kind: kind.value,
                 IntervalMetricReportByModel.metric: metric.value,
-                IntervalMetricReportByModel.value: 1.5,
+                IntervalMetricReportByModel.lower: 1.0,
+                IntervalMetricReportByModel.upper: 2.0,
                 IntervalMetricReportByModel.model: model.value,
             }
             for metric in metrics_for_kind
@@ -60,6 +61,7 @@ def synthetic_metric_report() -> ModelComparisonReport:
             PredictionsByModel.x: pd.Series(dtype=float),
             PredictionsByModel.y_pred: pd.Series(dtype=float),
             PredictionsByModel.y_true: pd.Series(dtype=float),
+            PredictionsByModel.mu_true: pd.Series(dtype=float),
             PredictionsByModel.model: pd.Series(dtype=str),
         },
     ).pipe(DataFrame[PredictionsByModel])
@@ -115,13 +117,17 @@ def test_plot_interval_metrics_vconcats_kind_facets(
     assert isinstance(chart, alt.VConcatChart)
     assert len(chart.vconcat) == 2
     confidence_chart, prediction_chart = chart.vconcat
-    assert confidence_chart.title == "Confidence intervals"
-    assert prediction_chart.title == "Prediction intervals"
+    assert confidence_chart.title == "Confidence intervals (bootstrap CI)"
+    assert prediction_chart.title == "Prediction intervals (bootstrap CI)"
     for facet_chart in chart.vconcat:
         assert isinstance(facet_chart, alt.FacetChart)
         assert facet_chart.facet.column.shorthand == f"{IntervalMetricReportByModel.metric}:N"
-        spec = facet_chart.spec
-        assert spec.mark.type == "tick"
-        assert spec.mark.orient == "vertical"
-        assert spec.encoding.y.shorthand == f"{IntervalMetricReportByModel.model}:N"
-        assert spec.encoding.x.shorthand == f"{IntervalMetricReportByModel.value}:Q"
+        layered = facet_chart.spec
+        assert layered.layer is not None
+        assert len(layered.layer) == 3
+        range_rule, lower_tick, upper_tick = layered.layer
+        assert range_rule.mark.type == "rule"
+        assert lower_tick.mark.type == "tick"
+        assert upper_tick.mark.type == "tick"
+        assert range_rule.encoding.y.shorthand == f"{IntervalMetricReportByModel.model}:N"
+        assert range_rule.encoding.x.shorthand == f"{IntervalMetricReportByModel.lower}:Q"
